@@ -69,7 +69,7 @@ type AccountManagementService interface {
 	ListAccounts(ctx context.Context, filter AccountFilter) ([]Account, error)
 	GetAccountDetails(ctx context.Context, email string) (*AccountDetails, error)
 	RegisterAccount(ctx context.Context, email string, options AccountOptions) error
-	ChangeAccountEmail(ctx context.Context, email string, options AccountOptions) error
+	ChangeAccountEmail(ctx context.Context, email, newEmail string, options AccountOptions) error
 	DisableAccount(ctx context.Context, email string) error
 	EnableAccount(ctx context.Context, email string) error
 	DeactivateAccount(ctx context.Context, email string) error
@@ -78,8 +78,7 @@ type AccountManagementService interface {
 
 type AccountRepository interface {
 	Create(ctx context.Context, accountModel Account) error
-	ReadByEmail(ctx context.Context, email string) (Account, error)
-	ReadById(ctx context.Context, id string) (Account, error)
+	ReadByEmail(ctx context.Context, email string) (*Account, error)
 	ReadAll(ctx context.Context, options shared.PageOptions) ([]Account, error)
 	Update(ctx context.Context, account Account) error
 	Delete(ctx context.Context, email string) error
@@ -90,8 +89,25 @@ type AccountManagementServiceDefault struct {
 }
 
 // ChangeAccountEmail implements AccountManagementService.
-func (a *AccountManagementServiceDefault) ChangeAccountEmail(ctx context.Context, email string, options AccountOptions) error {
-	panic("unimplemented")
+func (a *AccountManagementServiceDefault) ChangeAccountEmail(ctx context.Context, email, newEmail string, options AccountOptions) error {
+	_, err := a.accountRepository.ReadByEmail(ctx, email)
+	if err != nil {
+		return err
+	}
+
+	account, err := a.accountRepository.ReadByEmail(ctx, email)
+	if err != nil {
+		return err
+	}
+	account.IsVerified = options.IsVerified
+	account.Email = newEmail
+
+	err = a.accountRepository.Update(ctx, *account)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // DeactivateAccount implements AccountManagementService.
@@ -101,7 +117,7 @@ func (a *AccountManagementServiceDefault) DeactivateAccount(ctx context.Context,
 		return err
 	}
 	account.IsDeleted = true
-	err = a.accountRepository.Update(ctx, account)
+	err = a.accountRepository.Update(ctx, *account)
 
 	if err != nil {
 		return err
@@ -117,7 +133,7 @@ func (a *AccountManagementServiceDefault) DisableAccount(ctx context.Context, em
 		return err
 	}
 	account.IsEnabled = true
-	err = a.accountRepository.Update(ctx, account)
+	err = a.accountRepository.Update(ctx, *account)
 
 	if err != nil {
 		return err
@@ -133,7 +149,7 @@ func (a *AccountManagementServiceDefault) EnableAccount(ctx context.Context, ema
 		return err
 	}
 	account.IsEnabled = false
-	err = a.accountRepository.Update(ctx, account)
+	err = a.accountRepository.Update(ctx, *account)
 
 	if err != nil {
 		return err

@@ -67,7 +67,45 @@ func (m *MongoDBAccountRepository) Create(ctx context.Context, accountModel Acco
 
 // Delete implements AccountRepository.
 func (m *MongoDBAccountRepository) Delete(ctx context.Context, email string) error {
-	collection := a.db.Collection(accountCollection)
+	collection := m.db.Collection(accountCollection)
+	result, err := collection.DeleteOne(ctx, bson.D{{Key: "email", Value: email}})
+	if err != nil {
+		return nil
+	}
+
+	if result.DeletedCount == 0 {
+		return AccountNotFoundError{Value: email}
+	}
+
+	return nil
+}
+
+// ReadAll implements AccountRepository.
+func (m *MongoDBAccountRepository) ReadAll(ctx context.Context, options shared.PageOptions) ([]Account, error) {
+	collection := m.db.Collection(accountCollection)
+	var accounts []Account
+	cursor, err := collection.Find(ctx, bson.D{})
+	if err != nil {
+		return accounts, err
+	}
+	defer cursor.Close(ctx)
+	for cursor.Next(ctx) {
+		var account Account
+		err := cursor.Decode(&account)
+		if err != nil {
+			return accounts, err
+		}
+		accounts = append(accounts, account)
+	}
+	if err := cursor.Err(); err != nil {
+		return accounts, err
+	}
+	return accounts, nil
+}
+
+// ReadByEmail implements AccountRepository.
+func (m *MongoDBAccountRepository) ReadByEmail(ctx context.Context, email string) (*Account, error) {
+	collection := m.db.Collection(accountCollection)
 	result := collection.FindOne(ctx, bson.D{{Key: "email", Value: email}})
 	var account Account
 	err := result.Decode(&account)
@@ -80,24 +118,20 @@ func (m *MongoDBAccountRepository) Delete(ctx context.Context, email string) err
 	return &account, nil
 }
 
-// ReadAll implements AccountRepository.
-func (m *MongoDBAccountRepository) ReadAll(ctx context.Context, options shared.PageOptions) ([]Account, error) {
-	panic("unimplemented")
-}
-
-// ReadByEmail implements AccountRepository.
-func (m *MongoDBAccountRepository) ReadByEmail(ctx context.Context, email string) (Account, error) {
-	panic("unimplemented")
-}
-
-// ReadById implements AccountRepository.
-func (m *MongoDBAccountRepository) ReadById(ctx context.Context, id string) (Account, error) {
-	panic("unimplemented")
-}
-
 // Update implements AccountRepository.
 func (m *MongoDBAccountRepository) Update(ctx context.Context, account Account) error {
-	panic("unimplemented")
+	collection := m.db.Collection(accountCollection)
+	result, err := collection.UpdateOne(ctx, bson.D{{Key: "email", Value: account.Email}}, bson.D{{Key: "$set",
+		Value: bson.D{{Key: "email", Value: account.Email}, {Key: "isDeleted", Value: account.IsDeleted},
+			{Key: "isEnabled", Value: account.IsEnabled}, {Key: "modified", Value: time.Now()}}}})
+	if err != nil {
+		return err
+	}
+	if result.MatchedCount == 0 {
+		return AccountNotFoundError{Value: account.Email}
+	}
+
+	return nil
 }
 
 func NewMongoDBAccountRepository(db *mongo.Database) AccountRepository {

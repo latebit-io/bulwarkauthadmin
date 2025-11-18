@@ -9,3 +9,11 @@ type AccountDuplicateError struct {
 func (e AccountDuplicateError) Error() string {
 	return fmt.Sprintf("duplicate account: '%s' already exists", e.Value)
 }
+
+type AccountNotFoundError struct {
+	Value string `json:"value"`
+}
+
+func (e AccountNotFoundError) Error() string {
+	return fmt.Sprintf("account not found: '%s'", e.Value)
+}
