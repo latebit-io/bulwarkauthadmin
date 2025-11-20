@@ -4,10 +4,12 @@ import (
 	"context"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/latebit-io/bulwarkauthadmin/internal/shared"
 )
 
 type Account struct {
+	ID                uuid.UUID        `bson:"id"`
 	Email             string           `bson:"email"`
 	IsVerified        bool             `bson:"isVerified"`
 	VerificationToken string           `bson:"verificationToken"`
@@ -20,7 +22,7 @@ type Account struct {
 }
 
 type AccountDetails struct {
-	ID              string            `json:"id"`
+	ID              uuid.UUID         `json:"id"`
 	Email           string            `json:"email"`
 	IsVerified      bool              `json:"isVerified"`
 	IsEnabled       bool              `json:"isEnabled"`
@@ -40,7 +42,7 @@ type SocialProvider struct {
 }
 
 type AuthTokenModel struct {
-	ID           string    `json:"id" bson:"_id,omitempty"`
+	ID           string    `json:"id" bson:"id"`
 	UserID       string    `json:"userId" bson:"userId"`
 	DeviceID     string    `json:"deviceId" bson:"deviceId"`
 	AccessToken  string    `json:"accessToken" bson:"accessToken"`
@@ -67,7 +69,7 @@ type AccountFilter struct {
 
 type AccountManagementService interface {
 	ListAccounts(ctx context.Context, filter AccountFilter) ([]Account, error)
-	GetAccountDetails(ctx context.Context, email string) (*AccountDetails, error)
+	GetAccountDetails(ctx context.Context, id uuid.UUID) (*AccountDetails, error)
 	RegisterAccount(ctx context.Context, email string, options AccountOptions) error
 	ChangeAccountEmail(ctx context.Context, email, newEmail string, options AccountOptions) error
 	DisableAccount(ctx context.Context, email string) error
@@ -79,6 +81,7 @@ type AccountManagementService interface {
 type AccountRepository interface {
 	Create(ctx context.Context, accountModel Account) error
 	ReadByEmail(ctx context.Context, email string) (*Account, error)
+	ReadById(ctx context.Context, id uuid.UUID) (*Account, error)
 	ReadAll(ctx context.Context, options shared.PageOptions) ([]Account, error)
 	Update(ctx context.Context, account Account) error
 	Delete(ctx context.Context, email string) error
@@ -159,13 +162,14 @@ func (a *AccountManagementServiceDefault) EnableAccount(ctx context.Context, ema
 }
 
 // GetAccountDetails implements AccountManagementService.
-func (a *AccountManagementServiceDefault) GetAccountDetails(ctx context.Context, email string) (*AccountDetails, error) {
-	account, err := a.accountRepository.ReadByEmail(ctx, email)
+func (a *AccountManagementServiceDefault) GetAccountDetails(ctx context.Context, id uuid.UUID) (*AccountDetails, error) {
+	account, err := a.accountRepository.ReadById(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 
 	return &AccountDetails{
+		ID:         account.ID,
 		Email:      account.Email,
 		IsVerified: account.IsVerified,
 		IsEnabled:  account.IsEnabled,

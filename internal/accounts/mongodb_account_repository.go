@@ -18,6 +18,21 @@ type MongoDBAccountRepository struct {
 	db *mongo.Database
 }
 
+// ReadById implements AccountRepository.
+func (m *MongoDBAccountRepository) ReadById(ctx context.Context, id uuid.UUID) (*Account, error) {
+	collection := m.db.Collection(accountCollection)
+	result := collection.FindOne(ctx, bson.D{{Key: "id", Value: id}})
+	var account Account
+	err := result.Decode(&account)
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, AccountNotFoundError{Value: id.String()}
+		}
+		return nil, err
+	}
+	return &account, nil
+}
+
 // Create implements AccountRepository.
 func (m *MongoDBAccountRepository) Create(ctx context.Context, accountModel Account) error {
 	var errorMessages []string
@@ -43,6 +58,7 @@ func (m *MongoDBAccountRepository) Create(ctx context.Context, accountModel Acco
 
 	_, err = collection.InsertOne(ctx,
 		bson.D{
+			{Key: "id", Value: accountModel.ID},
 			{Key: "email", Value: accountModel.Email},
 			{Key: "password", Value: unusablePassword.String()},
 			{Key: "isVerified", Value: accountModel.IsVerified},
