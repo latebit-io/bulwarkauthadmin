@@ -1,16 +1,23 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"flag"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"os"
 
 	"github.com/joho/godotenv"
 	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
+	accountsapi "github.com/latebit-io/bulwarkauthadmin/api/accounts"
 	"github.com/latebit-io/bulwarkauthadmin/api/health"
+	"github.com/latebit-io/bulwarkauthadmin/internal/accounts"
 	"github.com/latebit-io/bulwarkauthadmin/internal/version"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 func main() {
@@ -23,16 +30,16 @@ func main() {
 		os.Exit(0)
 	}
 
-	//logger := getLogger()
+	logger := getLogger()
 	fmt.Println(`
  ____  _  _  __    _  _   __   ____  __ _   __   _  _  ____  _  _
 (  _ \/ )( \(  )  / )( \ / _\ (  _ \(  / ) / _\ / )( \(_  _)/ )( \
  ) _ () \/ (/ (_/\\ /\ //    \ )   / )  ( /    \) \/ (  )(  ) __ (
 (____/\____/\____/(_/\_)\_/\_/(__\_)(__\_)\_/\_/\____/ (__) \_)(_/admin v1.0.0`)
 	err := godotenv.Load()
-	// if err != nil {
-	// 	logger.Warn("no .env file loading from system")
-	// }
+	if err != nil {
+		logger.Warn("no .env file loading from system")
+	}
 
 	config, err := NewAppConfig()
 	if err != nil {
@@ -41,24 +48,48 @@ func main() {
 
 	service := echo.New()
 	service.HideBanner = true
-	//logger.Info("connecting to mongodb: ", "uri", config.DbConnection, "db", config.DbNameSeed)
-	//client, err := mongo.Connect(context.Background(), options.Client().ApplyURI(config.DbConnection))
+	logger.Info("connecting to mongodb: ", "uri", config.DbConnection, "db", config.DbNameSeed)
+	client, err := mongo.Connect(context.Background(), options.Client().ApplyURI(config.DbConnection))
 	if err != nil {
 		panic(err)
 	}
 
 	defer func() {
-		// if err := client.Disconnect(context.Background()); err != nil {
-		// 	panic(err)
-		// }
+		if err := client.Disconnect(context.Background()); err != nil {
+			panic(err)
+		}
 	}()
 
-	//mongodb := client.Database("bulwarkauth" + config.DbNameSeed)
+	mongodb := client.Database("bulwarkauth" + config.DbNameSeed)
+	accountRepository := accounts.NewMongoDBAccountRepository(mongodb)
+	accountsManagmentService := accounts.NewAccountManagementServiceDefault(accountRepository)
+	accountsHandler := accountsapi.NewAccountHandler(accountsManagmentService)
+	accountsapi.AccountRoutes(service, accountsHandler)
 
 	healthHandler := health.NewHealthHandler()
 	health.HealthRoutes(service, healthHandler)
 
 	if err := service.Start(fmt.Sprintf(":%d", config.Port)); err != nil && !errors.Is(err, http.ErrServerClosed) {
-		//logger.Error(err.Error())
+		logger.Error(err.Error())
 	}
+}
+
+func getLogger() *slog.Logger {
+	jsonHandler := slog.NewJSONHandler(os.Stderr, nil)
+	logger := slog.New(jsonHandler)
+	return logger
+}
+
+func corsSetting(service *echo.Echo, config *AppConfig, logger *slog.Logger) {
+	if !config.CORSEnabled {
+		return
+	}
+	config.AllowedOrigins = append(config.AllowedOrigins, fmt.Sprintf("https://%s", config.Domain))
+
+	service.Use(middleware.CORSWithConfig(middleware.CORSConfig{
+		AllowOrigins: config.AllowedOrigins,
+		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept},
+	}))
+
+	logger.Info("cors enabled")
 }

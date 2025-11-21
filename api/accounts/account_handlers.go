@@ -4,7 +4,6 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/latebit-io/bulwarkauthadmin/api/problem"
 	"github.com/latebit-io/bulwarkauthadmin/internal/accounts"
@@ -15,8 +14,7 @@ type AccountHandler struct {
 }
 
 type NewAccountRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
+	Email string `json:"email"`
 }
 
 type VerifyAccountRequest struct {
@@ -91,15 +89,11 @@ func (ah AccountHandler) RegisterAccount(c echo.Context) error {
 }
 
 func (ah AccountHandler) GetAccount(c echo.Context) error {
-	id, err := uuid.Parse(c.Param("id"))
-	if err != nil {
-		httpError := problem.NewBadRequest(err)
-		return echo.NewHTTPError(httpError.Status, httpError)
-	}
+	id := c.Param("id")
 	ctx := c.Request().Context()
 	account, err := ah.accounts.GetAccountDetails(ctx, id)
 	if err != nil {
-		httpError := problem.NewServerError(err)
+		httpError := problem.NewBadRequest(err)
 		return echo.NewHTTPError(httpError.Status, httpError)
 	}
 

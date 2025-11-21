@@ -18,15 +18,21 @@ type MongoDBAccountRepository struct {
 	db *mongo.Database
 }
 
+func NewMongoDBAccountRepository(db *mongo.Database) AccountRepository {
+	return &MongoDBAccountRepository{
+		db: db,
+	}
+}
+
 // ReadById implements AccountRepository.
-func (m *MongoDBAccountRepository) ReadById(ctx context.Context, id uuid.UUID) (*Account, error) {
+func (m *MongoDBAccountRepository) ReadById(ctx context.Context, id string) (*Account, error) {
 	collection := m.db.Collection(accountCollection)
 	result := collection.FindOne(ctx, bson.D{{Key: "id", Value: id}})
 	var account Account
 	err := result.Decode(&account)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
-			return nil, AccountNotFoundError{Value: id.String()}
+			return nil, AccountNotFoundError{Value: id}
 		}
 		return nil, err
 	}
@@ -45,7 +51,7 @@ func (m *MongoDBAccountRepository) Create(ctx context.Context, accountModel Acco
 	}
 
 	collection := m.db.Collection(accountCollection)
-	newUuid, err := uuid.NewUUID()
+	verificationToken, err := uuid.NewUUID()
 	if err != nil {
 		return err
 	}
@@ -58,11 +64,11 @@ func (m *MongoDBAccountRepository) Create(ctx context.Context, accountModel Acco
 
 	_, err = collection.InsertOne(ctx,
 		bson.D{
-			{Key: "id", Value: accountModel.ID},
+			{Key: "id", Value: uuid.New().String()},
 			{Key: "email", Value: accountModel.Email},
 			{Key: "password", Value: unusablePassword.String()},
 			{Key: "isVerified", Value: accountModel.IsVerified},
-			{Key: "verificationToken", Value: newUuid.String()},
+			{Key: "verificationToken", Value: verificationToken.String()},
 			{Key: "isEnabled", Value: false},
 			{Key: "isDeleted", Value: false},
 			{Key: "created", Value: time.Now()},
@@ -148,10 +154,4 @@ func (m *MongoDBAccountRepository) Update(ctx context.Context, account Account) 
 	}
 
 	return nil
-}
-
-func NewMongoDBAccountRepository(db *mongo.Database) AccountRepository {
-	return &MongoDBAccountRepository{
-		db: db,
-	}
 }

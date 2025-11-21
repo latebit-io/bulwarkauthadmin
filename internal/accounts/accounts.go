@@ -4,12 +4,11 @@ import (
 	"context"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/latebit-io/bulwarkauthadmin/internal/shared"
 )
 
 type Account struct {
-	ID                uuid.UUID        `bson:"id"`
+	ID                string           `bson:"id"`
 	Email             string           `bson:"email"`
 	IsVerified        bool             `bson:"isVerified"`
 	VerificationToken string           `bson:"verificationToken"`
@@ -22,7 +21,7 @@ type Account struct {
 }
 
 type AccountDetails struct {
-	ID              uuid.UUID         `json:"id"`
+	ID              string            `json:"id"`
 	Email           string            `json:"email"`
 	IsVerified      bool              `json:"isVerified"`
 	IsEnabled       bool              `json:"isEnabled"`
@@ -69,7 +68,7 @@ type AccountFilter struct {
 
 type AccountManagementService interface {
 	ListAccounts(ctx context.Context, filter AccountFilter) ([]Account, error)
-	GetAccountDetails(ctx context.Context, id uuid.UUID) (*AccountDetails, error)
+	GetAccountDetails(ctx context.Context, id string) (*AccountDetails, error)
 	RegisterAccount(ctx context.Context, email string, options AccountOptions) error
 	ChangeAccountEmail(ctx context.Context, email, newEmail string, options AccountOptions) error
 	DisableAccount(ctx context.Context, email string) error
@@ -81,7 +80,7 @@ type AccountManagementService interface {
 type AccountRepository interface {
 	Create(ctx context.Context, accountModel Account) error
 	ReadByEmail(ctx context.Context, email string) (*Account, error)
-	ReadById(ctx context.Context, id uuid.UUID) (*Account, error)
+	ReadById(ctx context.Context, id string) (*Account, error)
 	ReadAll(ctx context.Context, options shared.PageOptions) ([]Account, error)
 	Update(ctx context.Context, account Account) error
 	Delete(ctx context.Context, email string) error
@@ -162,7 +161,7 @@ func (a *AccountManagementServiceDefault) EnableAccount(ctx context.Context, ema
 }
 
 // GetAccountDetails implements AccountManagementService.
-func (a *AccountManagementServiceDefault) GetAccountDetails(ctx context.Context, id uuid.UUID) (*AccountDetails, error) {
+func (a *AccountManagementServiceDefault) GetAccountDetails(ctx context.Context, id string) (*AccountDetails, error) {
 	account, err := a.accountRepository.ReadById(ctx, id)
 	if err != nil {
 		return nil, err
