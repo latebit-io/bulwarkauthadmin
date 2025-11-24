@@ -173,11 +173,14 @@ func (a *AccountManagementServiceDefault) GetAccountDetails(ctx context.Context,
 		IsVerified: account.IsVerified,
 		IsEnabled:  account.IsEnabled,
 		IsDeleted:  account.IsDeleted,
+
 		//TODO: use other repositories to get the following properties
 		SocialProviders: nil,
 		Roles:           nil,
 		Permissions:     nil,
 		MagicCodes:      nil,
+		Created:         account.Created,
+		Modified:        account.Modified,
 	}, nil
 
 }
@@ -212,7 +215,7 @@ func (a *AccountManagementServiceDefault) RegisterAccount(ctx context.Context, e
 	}
 	err := a.accountRepository.Create(ctx, newAccount)
 	if err != nil {
-		return nil
+		return err
 	}
 	return nil
 }

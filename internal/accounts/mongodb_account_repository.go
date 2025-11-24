@@ -3,6 +3,7 @@ package accounts
 import (
 	"context"
 	"errors"
+	"log"
 	"strings"
 	"time"
 
@@ -10,6 +11,7 @@ import (
 	"github.com/latebit-io/bulwarkauthadmin/internal/shared"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 const accountCollection = "accounts"
@@ -19,6 +21,14 @@ type MongoDBAccountRepository struct {
 }
 
 func NewMongoDBAccountRepository(db *mongo.Database) AccountRepository {
+	collection := db.Collection(accountCollection)
+	_, err := collection.Indexes().CreateOne(context.Background(), mongo.IndexModel{
+		Keys:    bson.D{{Key: "email", Value: 1}},
+		Options: options.Index().SetUnique(true),
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
 	return &MongoDBAccountRepository{
 		db: db,
 	}
