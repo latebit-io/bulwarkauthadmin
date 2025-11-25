@@ -153,7 +153,7 @@ func (m *MongoDBAccountRepository) ReadByEmail(ctx context.Context, email string
 // Update implements AccountRepository.
 func (m *MongoDBAccountRepository) Update(ctx context.Context, account Account) error {
 	collection := m.db.Collection(accountCollection)
-	result, err := collection.UpdateOne(ctx, bson.D{{Key: "email", Value: account.Email}}, bson.D{{Key: "$set",
+	result, err := collection.UpdateOne(ctx, bson.D{{Key: "id", Value: account.ID}}, bson.D{{Key: "$set",
 		Value: bson.D{{Key: "email", Value: account.Email}, {Key: "isDeleted", Value: account.IsDeleted},
 			{Key: "isEnabled", Value: account.IsEnabled}, {Key: "modified", Value: time.Now()}}}})
 	if err != nil {

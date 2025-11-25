@@ -2,6 +2,7 @@ package accounts
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/latebit-io/bulwarkauthadmin/internal/shared"
@@ -70,7 +71,7 @@ type AccountManagementService interface {
 	ListAccounts(ctx context.Context, filter AccountFilter) ([]Account, error)
 	GetAccountDetails(ctx context.Context, id string) (*AccountDetails, error)
 	RegisterAccount(ctx context.Context, email string, options AccountOptions) error
-	ChangeAccountEmail(ctx context.Context, email, newEmail string, options AccountOptions) error
+	ChangeAccountEmail(ctx context.Context, accountID, newEmail string, options AccountOptions) error
 	DisableAccount(ctx context.Context, email string) error
 	EnableAccount(ctx context.Context, email string) error
 	DeactivateAccount(ctx context.Context, email string) error
@@ -91,13 +92,17 @@ type AccountManagementServiceDefault struct {
 }
 
 // ChangeAccountEmail implements AccountManagementService.
-func (a *AccountManagementServiceDefault) ChangeAccountEmail(ctx context.Context, email, newEmail string, options AccountOptions) error {
-	_, err := a.accountRepository.ReadByEmail(ctx, email)
+func (a *AccountManagementServiceDefault) ChangeAccountEmail(ctx context.Context, accountID, newEmail string, options AccountOptions) error {
+	_, err := a.accountRepository.ReadByEmail(ctx, newEmail)
 	if err != nil {
-		return err
+		var accountNotFound AccountNotFoundError
+		duplicate := errors.As(err, &accountNotFound)
+		if duplicate == false {
+			return err
+		}
 	}
 
-	account, err := a.accountRepository.ReadByEmail(ctx, email)
+	account, err := a.accountRepository.ReadById(ctx, accountID)
 	if err != nil {
 		return err
 	}
