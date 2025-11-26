@@ -36,15 +36,16 @@ type ResetPasswordRequest struct {
 	Password string `json:"password"`
 }
 
-type DeleteAccountRequest struct {
-	Email       string `json:"email"`
-	AccessToken string `json:"accessToken"`
+type DisableAccountRequest struct {
+	AccountID string `json:"accountId"`
 }
 
-type ChangePasswordRequest struct {
-	Email       string `json:"email"`
-	Password    string `json:"newPassword"`
-	AccessToken string `json:"accessToken"`
+type DeactivateAccountRequest struct {
+	AccountID string `json:"accountId"`
+}
+
+type EnableAccountRequest struct {
+	AccountID string `json:"accountId"`
 }
 
 type ChangeEmailRequest struct {
@@ -125,6 +126,92 @@ func (ah AccountHandler) ChangeAccountEmail(c echo.Context) error {
 			})
 		}
 
+		httpError := problem.NewServerError(err)
+		return echo.NewHTTPError(httpError.Status, httpError)
+	}
+
+	return c.NoContent(http.StatusNoContent)
+}
+
+func (ah *AccountHandler) ListAccounts(c echo.Context) error {
+	accountsFilter := new(accounts.AccountFilter)
+	err := c.Bind(accountsFilter)
+	if err != nil {
+		httpError := problem.NewBadRequest(err)
+		return echo.NewHTTPError(httpError.Status, httpError)
+	}
+
+	ctx := c.Request().Context()
+	accounts, err := ah.accounts.ListAccounts(ctx, *accountsFilter)
+	if err != nil {
+		httpError := problem.NewServerError(err)
+		return echo.NewHTTPError(httpError.Status, httpError)
+	}
+
+	return c.JSON(http.StatusOK, accounts)
+}
+
+func (ah *AccountHandler) DisableAccount(c echo.Context) error {
+	disableAccountRequest := new(DisableAccountRequest)
+	err := c.Bind(disableAccountRequest)
+	if err != nil {
+		httpError := problem.NewBadRequest(err)
+		return echo.NewHTTPError(httpError.Status, httpError)
+	}
+	ctx := c.Request().Context()
+	err = ah.accounts.DisableAccount(ctx, disableAccountRequest.AccountID)
+	if err != nil {
+		httpError := problem.NewServerError(err)
+		return echo.NewHTTPError(httpError.Status, httpError)
+	}
+
+	return c.NoContent(http.StatusNoContent)
+}
+
+func (ah *AccountHandler) EnableAccount(c echo.Context) error {
+	enableAccountRequest := new(EnableAccountRequest)
+	err := c.Bind(enableAccountRequest)
+	if err != nil {
+		httpError := problem.NewBadRequest(err)
+		return echo.NewHTTPError(httpError.Status, httpError)
+	}
+	ctx := c.Request().Context()
+	err = ah.accounts.EnableAccount(ctx, enableAccountRequest.AccountID)
+	if err != nil {
+		httpError := problem.NewServerError(err)
+		return echo.NewHTTPError(httpError.Status, httpError)
+	}
+
+	return c.NoContent(http.StatusNoContent)
+}
+
+func (ah *AccountHandler) DeactivateAccount(c echo.Context) error {
+	deactivateAccountRequest := new(DeactivateAccountRequest)
+	err := c.Bind(deactivateAccountRequest)
+	if err != nil {
+		httpError := problem.NewBadRequest(err)
+		return echo.NewHTTPError(httpError.Status, httpError)
+	}
+	ctx := c.Request().Context()
+	err = ah.accounts.DeactivateAccount(ctx, deactivateAccountRequest.AccountID)
+	if err != nil {
+		httpError := problem.NewServerError(err)
+		return echo.NewHTTPError(httpError.Status, httpError)
+	}
+
+	return c.NoContent(http.StatusNoContent)
+}
+
+func (ah *AccountHandler) PurgeAccount(c echo.Context) error {
+	deactivateAccountRequest := new(DeactivateAccountRequest)
+	err := c.Bind(deactivateAccountRequest)
+	if err != nil {
+		httpError := problem.NewBadRequest(err)
+		return echo.NewHTTPError(httpError.Status, httpError)
+	}
+	ctx := c.Request().Context()
+	err = ah.accounts.DeactivateAccount(ctx, deactivateAccountRequest.AccountID)
+	if err != nil {
 		httpError := problem.NewServerError(err)
 		return echo.NewHTTPError(httpError.Status, httpError)
 	}

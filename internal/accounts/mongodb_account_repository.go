@@ -98,15 +98,15 @@ func (m *MongoDBAccountRepository) Create(ctx context.Context, accountModel Acco
 }
 
 // Delete implements AccountRepository.
-func (m *MongoDBAccountRepository) Delete(ctx context.Context, email string) error {
+func (m *MongoDBAccountRepository) Delete(ctx context.Context, accountId string) error {
 	collection := m.db.Collection(accountCollection)
-	result, err := collection.DeleteOne(ctx, bson.D{{Key: "email", Value: email}})
+	result, err := collection.DeleteOne(ctx, bson.D{{Key: "id", Value: accountId}})
 	if err != nil {
 		return nil
 	}
 
 	if result.DeletedCount == 0 {
-		return AccountNotFoundError{Value: email}
+		return AccountNotFoundError{Value: accountId}
 	}
 
 	return nil

@@ -9,16 +9,16 @@ import (
 )
 
 type Account struct {
-	ID                string           `bson:"id"`
-	Email             string           `bson:"email"`
-	IsVerified        bool             `bson:"isVerified"`
-	VerificationToken string           `bson:"verificationToken"`
-	IsEnabled         bool             `bson:"isEnabled"`
-	IsDeleted         bool             `bson:"isDeleted"`
-	SocialProviders   []SocialProvider `bson:"socialProviders"`
-	Roles             []string         `bson:"roles"`
-	Created           time.Time        `bson:"created"`
-	Modified          time.Time        `bson:"modified"`
+	ID                string           `json:"id" bson:"id"`
+	Email             string           `json: "email" bson:"email"`
+	IsVerified        bool             `json:"isVerified" bson:"isVerified"`
+	VerificationToken string           `json:"verificationToken" bson:"verificationToken"`
+	IsEnabled         bool             `json:"isEnabled" bson:"isEnabled"`
+	IsDeleted         bool             `json:"isDeleted" bson:"isDeleted"`
+	SocialProviders   []SocialProvider `json:"socialProviders" bson:"socialProviders"`
+	Roles             []string         `json:"roles" bson:"roles"`
+	Created           time.Time        `json:"created" bson:"created"`
+	Modified          time.Time        `json:"modified" bson:"modified"`
 }
 
 type AccountDetails struct {
@@ -68,23 +68,31 @@ type AccountFilter struct {
 }
 
 type AccountManagementService interface {
+	// List accounts with filter
 	ListAccounts(ctx context.Context, filter AccountFilter) ([]Account, error)
+	// Get account details by ID
 	GetAccountDetails(ctx context.Context, id string) (*AccountDetails, error)
+	// Register a new account with email and options
 	RegisterAccount(ctx context.Context, email string, options AccountOptions) error
+	// Change account email
 	ChangeAccountEmail(ctx context.Context, accountID, newEmail string, options AccountOptions) error
-	DisableAccount(ctx context.Context, email string) error
-	EnableAccount(ctx context.Context, email string) error
-	DeactivateAccount(ctx context.Context, email string) error
-	PurgeAccount(ctx context.Context, email string) error
+	// Disable account temporarily
+	DisableAccount(ctx context.Context, accountId string) error
+	// Enable account from being disabled
+	EnableAccount(ctx context.Context, accountId string) error
+	// Deactivate soft deletes an account
+	DeactivateAccount(ctx context.Context, accountId string) error
+	// Purge account hard deletes an account
+	PurgeAccount(ctx context.Context, accountId string) error
 }
 
 type AccountRepository interface {
 	Create(ctx context.Context, accountModel Account) error
 	ReadByEmail(ctx context.Context, email string) (*Account, error)
-	ReadById(ctx context.Context, id string) (*Account, error)
+	ReadById(ctx context.Context, accountId string) (*Account, error)
 	ReadAll(ctx context.Context, options shared.PageOptions) ([]Account, error)
 	Update(ctx context.Context, account Account) error
-	Delete(ctx context.Context, email string) error
+	Delete(ctx context.Context, accountId string) error
 }
 
 type AccountManagementServiceDefault struct {
@@ -118,8 +126,8 @@ func (a *AccountManagementServiceDefault) ChangeAccountEmail(ctx context.Context
 }
 
 // DeactivateAccount implements AccountManagementService.
-func (a *AccountManagementServiceDefault) DeactivateAccount(ctx context.Context, email string) error {
-	account, err := a.accountRepository.ReadByEmail(ctx, email)
+func (a *AccountManagementServiceDefault) DeactivateAccount(ctx context.Context, accountId string) error {
+	account, err := a.accountRepository.ReadById(ctx, accountId)
 	if err != nil {
 		return err
 	}
@@ -134,12 +142,12 @@ func (a *AccountManagementServiceDefault) DeactivateAccount(ctx context.Context,
 }
 
 // DisableAccount implements AccountManagementService.
-func (a *AccountManagementServiceDefault) DisableAccount(ctx context.Context, email string) error {
-	account, err := a.accountRepository.ReadByEmail(ctx, email)
+func (a *AccountManagementServiceDefault) DisableAccount(ctx context.Context, accountId string) error {
+	account, err := a.accountRepository.ReadById(ctx, accountId)
 	if err != nil {
 		return err
 	}
-	account.IsEnabled = true
+	account.IsEnabled = false
 	err = a.accountRepository.Update(ctx, *account)
 
 	if err != nil {
@@ -150,12 +158,12 @@ func (a *AccountManagementServiceDefault) DisableAccount(ctx context.Context, em
 }
 
 // EnableAccount implements AccountManagementService.
-func (a *AccountManagementServiceDefault) EnableAccount(ctx context.Context, email string) error {
-	account, err := a.accountRepository.ReadByEmail(ctx, email)
+func (a *AccountManagementServiceDefault) EnableAccount(ctx context.Context, accountId string) error {
+	account, err := a.accountRepository.ReadById(ctx, accountId)
 	if err != nil {
 		return err
 	}
-	account.IsEnabled = false
+	account.IsEnabled = true
 	err = a.accountRepository.Update(ctx, *account)
 
 	if err != nil {
@@ -201,13 +209,13 @@ func (a *AccountManagementServiceDefault) ListAccounts(ctx context.Context, filt
 }
 
 // PurgeAccount implements AccountManagementService.
-func (a *AccountManagementServiceDefault) PurgeAccount(ctx context.Context, email string) error {
-	err := a.accountRepository.Delete(ctx, email)
+func (a *AccountManagementServiceDefault) PurgeAccount(ctx context.Context, accountId string) error {
+	err := a.accountRepository.Delete(ctx, accountId)
 	if err != nil {
 		return err
 	}
 
-	return err
+	return nil
 }
 
 // RegisterAccount implements AccountManagementService.
