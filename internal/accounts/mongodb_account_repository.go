@@ -155,7 +155,8 @@ func (m *MongoDBAccountRepository) Update(ctx context.Context, account Account) 
 	collection := m.db.Collection(accountCollection)
 	result, err := collection.UpdateOne(ctx, bson.D{{Key: "id", Value: account.ID}}, bson.D{{Key: "$set",
 		Value: bson.D{{Key: "email", Value: account.Email}, {Key: "isDeleted", Value: account.IsDeleted},
-			{Key: "isEnabled", Value: account.IsEnabled}, {Key: "modified", Value: time.Now()}}}})
+			{Key: "isEnabled", Value: account.IsEnabled}, {Key: "socialProvider", Value: account.SocialProviders}, {Key: "roles", Value: account.Roles},
+			{Key: "modified", Value: time.Now()}}}})
 	if err != nil {
 		return err
 	}

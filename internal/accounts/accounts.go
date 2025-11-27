@@ -10,30 +10,22 @@ import (
 
 type Account struct {
 	ID                string           `json:"id" bson:"id"`
-	Email             string           `json: "email" bson:"email"`
+	Email             string           `json:"email" bson:"email"`
 	IsVerified        bool             `json:"isVerified" bson:"isVerified"`
 	VerificationToken string           `json:"verificationToken" bson:"verificationToken"`
 	IsEnabled         bool             `json:"isEnabled" bson:"isEnabled"`
 	IsDeleted         bool             `json:"isDeleted" bson:"isDeleted"`
 	SocialProviders   []SocialProvider `json:"socialProviders" bson:"socialProviders"`
 	Roles             []string         `json:"roles" bson:"roles"`
+	Permissions       []string         `json:"permissions" bson:"permissions"`
 	Created           time.Time        `json:"created" bson:"created"`
 	Modified          time.Time        `json:"modified" bson:"modified"`
 }
 
 type AccountDetails struct {
-	ID              string            `json:"id"`
-	Email           string            `json:"email"`
-	IsVerified      bool              `json:"isVerified"`
-	IsEnabled       bool              `json:"isEnabled"`
-	IsDeleted       bool              `json:"isDeleted"`
-	SocialProviders *[]SocialProvider `json:"socialProviders,omitempty"`
-	Roles           []string          `json:"roles"`
-	Permissions     []string          `json:"permissions"`
-	AuthTokens      []AuthTokenModel  `json:"authTokens"`
-	MagicCodes      []MagicCodeModel  `json:"magicCodes"`
-	Created         time.Time         `json:"created"`
-	Modified        time.Time         `json:"modified"`
+	Account
+	AuthTokens []AuthTokenModel `json:"authTokens"`
+	MagicCodes []MagicCodeModel `json:"magicCodes"`
 }
 
 type SocialProvider struct {
@@ -74,6 +66,8 @@ type AccountManagementService interface {
 	GetAccountDetails(ctx context.Context, id string) (*AccountDetails, error)
 	// Register a new account with email and options
 	RegisterAccount(ctx context.Context, email string, options AccountOptions) error
+	// Unlink SocialProvider
+	UnlinkSocialProvider(ctx context.Context, accountID, provider string) error
 	// Change account email
 	ChangeAccountEmail(ctx context.Context, accountID, newEmail string, options AccountOptions) error
 	// Disable account temporarily
@@ -97,6 +91,26 @@ type AccountRepository interface {
 
 type AccountManagementServiceDefault struct {
 	accountRepository AccountRepository
+}
+
+// UnlinkSocialProvider implements AccountManagementService.
+func (a *AccountManagementServiceDefault) UnlinkSocialProvider(ctx context.Context, accountID, provider string) error {
+	account, err := a.accountRepository.ReadById(ctx, accountID)
+	if err != nil {
+		return err
+	}
+	socials := account.SocialProviders
+	for i, social := range socials {
+		if social.Name == provider {
+			socials = append(socials[:i], socials[i+1:]...)
+			account.SocialProviders = socials
+			return a.accountRepository.Update(ctx, *account)
+		}
+	}
+
+	return SocialProviderNotFoundError{
+		Value: provider,
+	}
 }
 
 // ChangeAccountEmail implements AccountManagementService.
@@ -181,19 +195,9 @@ func (a *AccountManagementServiceDefault) GetAccountDetails(ctx context.Context,
 	}
 
 	return &AccountDetails{
-		ID:         account.ID,
-		Email:      account.Email,
-		IsVerified: account.IsVerified,
-		IsEnabled:  account.IsEnabled,
-		IsDeleted:  account.IsDeleted,
+		Account: *account,
 
-		//TODO: use other repositories to get the following properties
-		SocialProviders: nil,
-		Roles:           nil,
-		Permissions:     nil,
-		MagicCodes:      nil,
-		Created:         account.Created,
-		Modified:        account.Modified,
+		MagicCodes: nil,
 	}, nil
 
 }
