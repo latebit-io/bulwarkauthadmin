@@ -10,5 +10,5 @@ func AccountRoutes(e *echo.Echo, handler AccountHandler) {
 	e.PUT("/api/accounts/disable", handler.DisableAccount)
 	e.PUT("/api/accounts/enable", handler.EnableAccount)
 	e.PUT("/api/accounts/deactivate", handler.DeactivateAccount)
-
+	e.PUT("/api/accounts/unlink", handler.UnlinkSocial)
 }

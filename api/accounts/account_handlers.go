@@ -17,25 +17,6 @@ type NewAccountRequest struct {
 	Email string `json:"email"`
 }
 
-type VerifyAccountRequest struct {
-	Email string `json:"email"`
-	Token string `json:"token"`
-}
-
-type ResendVerificationRequest struct {
-	Email string `json:"email"`
-}
-
-type ForgotPasswordRequest struct {
-	Email string `json:"email"`
-}
-
-type ResetPasswordRequest struct {
-	Email    string `json:"email"`
-	Token    string `json:"token"`
-	Password string `json:"password"`
-}
-
 type DisableAccountRequest struct {
 	AccountID string `json:"accountId"`
 }
@@ -51,6 +32,11 @@ type EnableAccountRequest struct {
 type ChangeEmailRequest struct {
 	Email     string `json:"email"`
 	AccountID string `json:"accountId"`
+}
+
+type UnlinkSocialRequest struct {
+	AccountID string `json:"accountId"`
+	Provider  string `json:"provider"`
 }
 
 func NewAccountHandler(service accounts.AccountManagementService) AccountHandler {
@@ -212,6 +198,29 @@ func (ah *AccountHandler) PurgeAccount(c echo.Context) error {
 	ctx := c.Request().Context()
 	err = ah.accounts.DeactivateAccount(ctx, deactivateAccountRequest.AccountID)
 	if err != nil {
+		httpError := problem.NewServerError(err)
+		return echo.NewHTTPError(httpError.Status, httpError)
+	}
+
+	return c.NoContent(http.StatusNoContent)
+}
+
+func (ah *AccountHandler) UnlinkSocial(c echo.Context) error {
+	unlinkRequest := new(UnlinkSocialRequest)
+	err := c.Bind(unlinkRequest)
+	if err != nil {
+		httpError := problem.NewBadRequest(err)
+		return echo.NewHTTPError(httpError.Status, httpError)
+	}
+	ctx := c.Request().Context()
+	err = ah.accounts.UnlinkSocialProvider(ctx, unlinkRequest.AccountID, unlinkRequest.Provider)
+	if err != nil {
+		var socialProviderNotFound accounts.SocialProviderNotFoundError
+		notFound := errors.As(err, &socialProviderNotFound)
+		if notFound {
+			httpError := problem.NewBadRequest(err)
+			return echo.NewHTTPError(httpError.Status, httpError)
+		}
 		httpError := problem.NewServerError(err)
 		return echo.NewHTTPError(httpError.Status, httpError)
 	}
