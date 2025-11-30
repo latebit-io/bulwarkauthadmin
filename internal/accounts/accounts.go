@@ -118,9 +118,11 @@ func (a *AccountManagementServiceDefault) ChangeAccountEmail(ctx context.Context
 	_, err := a.accountRepository.ReadByEmail(ctx, newEmail)
 	if err != nil {
 		var accountNotFound AccountNotFoundError
-		duplicate := errors.As(err, &accountNotFound)
-		if duplicate == false {
-			return err
+		notFound := errors.As(err, &accountNotFound)
+		if !notFound {
+			return AccountDuplicateError{
+				Value: newEmail,
+			}
 		}
 	}
 

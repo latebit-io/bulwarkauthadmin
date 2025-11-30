@@ -103,7 +103,7 @@ func (m *MongoDBAccountRepository) Delete(ctx context.Context, accountId string)
 	collection := m.db.Collection(accountCollection)
 	result, err := collection.DeleteOne(ctx, bson.D{{Key: "id", Value: accountId}})
 	if err != nil {
-		return nil
+		return err
 	}
 
 	if result.DeletedCount == 0 {

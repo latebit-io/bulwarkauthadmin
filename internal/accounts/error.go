@@ -23,5 +23,5 @@ type SocialProviderNotFoundError struct {
 }
 
 func (e SocialProviderNotFoundError) Error() string {
-	return fmt.Sprintf("social provider not found: '%s", e.Value)
+	return fmt.Sprintf("social provider not found: '%s'", e.Value)
 }
