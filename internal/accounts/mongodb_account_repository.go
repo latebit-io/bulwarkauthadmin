@@ -77,6 +77,7 @@ func (m *MongoDBAccountRepository) Create(ctx context.Context, accountModel Acco
 			{Key: "id", Value: uuid.New().String()},
 			{Key: "email", Value: accountModel.Email},
 			{Key: "password", Value: unusablePassword.String()},
+			{Key: "roles", Value: accountModel.Roles},
 			{Key: "isVerified", Value: accountModel.IsVerified},
 			{Key: "verificationToken", Value: verificationToken.String()},
 			{Key: "isEnabled", Value: false},
@@ -155,7 +156,7 @@ func (m *MongoDBAccountRepository) Update(ctx context.Context, account Account) 
 	collection := m.db.Collection(accountCollection)
 	result, err := collection.UpdateOne(ctx, bson.D{{Key: "id", Value: account.ID}}, bson.D{{Key: "$set",
 		Value: bson.D{{Key: "email", Value: account.Email}, {Key: "isDeleted", Value: account.IsDeleted},
-			{Key: "isEnabled", Value: account.IsEnabled}, {Key: "socialProvider", Value: account.SocialProviders}, {Key: "roles", Value: account.Roles},
+			{Key: "isEnabled", Value: account.IsEnabled}, {Key: "socialProviders", Value: account.SocialProviders}, {Key: "roles", Value: account.Roles},
 			{Key: "modified", Value: time.Now()}}}})
 	if err != nil {
 		return err

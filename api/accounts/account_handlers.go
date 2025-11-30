@@ -196,7 +196,7 @@ func (ah *AccountHandler) PurgeAccount(c echo.Context) error {
 		return echo.NewHTTPError(httpError.Status, httpError)
 	}
 	ctx := c.Request().Context()
-	err = ah.accounts.DeactivateAccount(ctx, deactivateAccountRequest.AccountID)
+	err = ah.accounts.PurgeAccount(ctx, deactivateAccountRequest.AccountID)
 	if err != nil {
 		httpError := problem.NewServerError(err)
 		return echo.NewHTTPError(httpError.Status, httpError)
