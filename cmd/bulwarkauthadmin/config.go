@@ -18,11 +18,25 @@ type AppConfig struct {
 
 func NewAppConfig() (*AppConfig, error) {
 	config := &AppConfig{}
-	config.BulwarkAuthUrl = getEnv("BULWARK_AUTH_URL", "http://localhost:8080")
+	config.CORSEnabled = getEnvAsBool("CORS_ENABLED", false)
+	config.BulwarkAuthUrl = getEnv("BULWARK_AUTH_URL", "http://localhost:5173")
 	config.Port = getEnvAsInt("PORT", 8080)
 	config.DbConnection = getEnv("DB_CONNECTION", "mongodb://localhost:27017/?connect=direct")
+	config.AllowedOrigins = getEnvAsStringSlice("ALLOWED_WEB_ORIGINS", []string{"http://localhost:5173"})
 
 	return config, nil
+}
+
+func getEnvAsBool(key string, defaultValue bool) bool {
+	valueStr := getEnv(key, "")
+	if valueStr == "" {
+		return defaultValue
+	}
+	value, err := strconv.ParseBool(valueStr)
+	if err != nil {
+		return defaultValue
+	}
+	return value
 }
 
 func getEnv(key, defaultValue string) string {

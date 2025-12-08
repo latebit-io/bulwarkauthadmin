@@ -68,6 +68,7 @@ func main() {
 
 	healthHandler := health.NewHealthHandler()
 	health.HealthRoutes(service, healthHandler)
+	corsSetting(service, config, logger)
 
 	if err := service.Start(fmt.Sprintf(":%d", config.Port)); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		logger.Error(err.Error())
@@ -84,12 +85,11 @@ func corsSetting(service *echo.Echo, config *AppConfig, logger *slog.Logger) {
 	if !config.CORSEnabled {
 		return
 	}
-	config.AllowedOrigins = append(config.AllowedOrigins, fmt.Sprintf("https://%s", config.Domain))
 
 	service.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: config.AllowedOrigins,
 		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept},
 	}))
-
 	logger.Info("cors enabled")
+	logger.Info("cors allowed origins", "origins", config.AllowedOrigins)
 }
