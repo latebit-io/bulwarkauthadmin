@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/latebit-io/bulwarkauthadmin/internal/shared"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -15,6 +16,33 @@ const rolesCollection = "roles"
 type MongoDBRolesRepository struct {
 	db             *mongo.Database
 	collectionName string
+}
+
+// ReadAll implements RolesRepository.
+func (m *MongoDBRolesRepository) ReadAll(ctx context.Context, paging shared.PageOptions) ([]Role, error) {
+	collection := m.db.Collection(m.collectionName)
+	filter := bson.M{}
+	opts := options.Find().SetSkip(int64(paging.Page())).SetLimit(int64(paging.Size()))
+	cursor, err := collection.Find(ctx, filter, opts)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var roles []Role
+	for cursor.Next(ctx) {
+		var role Role
+		if err := cursor.Decode(&role); err != nil {
+			return nil, err
+		}
+		roles = append(roles, role)
+	}
+
+	if err := cursor.Err(); err != nil {
+		return nil, err
+	}
+
+	return roles, nil
 }
 
 // Create implements RolesRepository.

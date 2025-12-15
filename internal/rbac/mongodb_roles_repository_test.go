@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/latebit-io/bulwarkauthadmin/internal/shared"
 	"github.com/latebit-io/bulwarkauthadmin/internal/utils"
 	"github.com/stretchr/testify/assert"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -212,6 +213,96 @@ func TestMongoDBRolesRepository_Update(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestMongoDBRolesRepository_ReadAll(t *testing.T) {
+	tests := []struct {
+		name          string
+		roles         []Role
+		expectedCount int
+	}{
+		{
+			name: "Multiple Roles",
+			roles: []Role{
+				{ID: "role-1", Name: "admin", Description: "Administrator"},
+				{ID: "role-2", Name: "moderator", Description: "Moderator"},
+				{ID: "role-3", Name: "user", Description: "Standard User"},
+			},
+			expectedCount: 3,
+		},
+		{
+			name:          "Empty Database",
+			roles:         []Role{},
+			expectedCount: 0,
+		},
+		{
+			name: "Single Role",
+			roles: []Role{
+				{ID: "role-1", Name: "admin", Description: "Administrator"},
+			},
+			expectedCount: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client, db := setupMongoServer(t)
+			defer cleanupMongoServer(t, client)
+
+			repo := NewMongoDBRolesRepository(db)
+
+			for _, role := range tt.roles {
+				err := repo.Create(context.TODO(), role)
+				assert.NoError(t, err)
+			}
+
+			roles, err := repo.ReadAll(context.TODO(), shared.NewPageOptions(0, 0, ""))
+
+			assert.NoError(t, err)
+			assert.Equal(t, tt.expectedCount, len(roles))
+		})
+	}
+}
+
+func TestMongoDBRolesRepository_ReadAllWithPaging(t *testing.T) {
+	client, db := setupMongoServer(t)
+	defer cleanupMongoServer(t, client)
+
+	repo := NewMongoDBRolesRepository(db)
+
+	// Create multiple roles
+	roles := []Role{
+		{ID: "role-1", Name: "admin", Description: "Administrator"},
+		{ID: "role-2", Name: "moderator", Description: "Moderator"},
+		{ID: "role-3", Name: "editor", Description: "Editor"},
+		{ID: "role-4", Name: "viewer", Description: "Viewer"},
+		{ID: "role-5", Name: "guest", Description: "Guest"},
+	}
+
+	for _, role := range roles {
+		err := repo.Create(context.TODO(), role)
+		assert.NoError(t, err)
+	}
+
+	// Test: Get first page (limit 2)
+	page1, err := repo.ReadAll(context.TODO(), shared.NewPageOptions(0, 2, ""))
+	assert.NoError(t, err)
+	assert.Equal(t, 2, len(page1))
+
+	// Test: Get second page (offset 2, limit 2)
+	page2, err := repo.ReadAll(context.TODO(), shared.NewPageOptions(2, 2, ""))
+	assert.NoError(t, err)
+	assert.Equal(t, 2, len(page2))
+
+	// Test: Get third page (offset 4, limit 2) - should return 1
+	page3, err := repo.ReadAll(context.TODO(), shared.NewPageOptions(4, 2, ""))
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(page3))
+
+	// Test: Get all (no limit)
+	allRoles, err := repo.ReadAll(context.TODO(), shared.NewPageOptions(0, 0, ""))
+	assert.NoError(t, err)
+	assert.Equal(t, 5, len(allRoles))
 }
 
 func TestMongoDBRolesRepository_Delete(t *testing.T) {

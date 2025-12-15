@@ -53,7 +53,7 @@ type Permission struct {
 func NewPermission(name, action string) Permission {
 	return Permission{
 		ID:       uuid.New().String(),
-		Key:      fmt.Sprintf("%s:%s", name, uuid.New().String()),
+		Key:      fmt.Sprintf("%s:%s", name, action),
 		Name:     name,
 		Action:   action,
 		Created:  time.Now(),
@@ -64,6 +64,7 @@ func NewPermission(name, action string) Permission {
 type RolesRepository interface {
 	Create(ctx context.Context, role Role) error
 	Read(ctx context.Context, roleName string) (*Role, error)
+	ReadAll(ctx context.Context, paging shared.PageOptions) ([]Role, error)
 	Update(ctx context.Context, role Role) error
 	Delete(ctx context.Context, roleName string) error
 }
@@ -78,6 +79,8 @@ type PermissionsRepository interface {
 type RoleService interface {
 	CreateRole(ctx context.Context, name, description string) error
 	UpdateRole(ctx context.Context, role, description string) error
+	GetRole(ctx context.Context, name string) (Role, error)
+	ListRoles(ctx context.Context, paging shared.PageOptions) ([]Role, error)
 	AddPermission(ctx context.Context, role, permissionKey string) error
 	RemovePermission(ctx context.Context, role, permissionKey string) error
 	DeleteRole(ctx context.Context, role string) error
@@ -85,6 +88,24 @@ type RoleService interface {
 
 type RoleServiceDefault struct {
 	roleRepository RolesRepository
+}
+
+// GetRole implements RoleService.
+func (r *RoleServiceDefault) GetRole(ctx context.Context, name string) (Role, error) {
+	role, err := r.roleRepository.Read(ctx, name)
+	if err != nil {
+		return Role{}, err
+	}
+	return *role, nil
+}
+
+// ListRoles implements RoleService.
+func (r *RoleServiceDefault) ListRoles(ctx context.Context, paging shared.PageOptions) ([]Role, error) {
+	roles, err := r.roleRepository.ReadAll(ctx, paging)
+	if err != nil {
+		return nil, err
+	}
+	return roles, nil
 }
 
 // AddPermission implements RoleService.
@@ -100,9 +121,11 @@ func (r *RoleServiceDefault) AddPermission(ctx context.Context, roleName string,
 // CreateRole implements RoleService.
 func (r *RoleServiceDefault) CreateRole(ctx context.Context, name string, description string) error {
 	newRole := Role{
-		ID:       uuid.New().String(),
-		Name:     name,
-		Modified: time.Now(),
+		ID:          uuid.New().String(),
+		Name:        name,
+		Description: description,
+		Created:     time.Now(),
+		Modified:    time.Now(),
 	}
 	if err := r.roleRepository.Create(ctx, newRole); err != nil {
 		return err

@@ -1,6 +1,3 @@
-//go:build integration
-// +build integration
-
 package accounts
 
 import (
@@ -33,7 +30,7 @@ func TestAccountHandler_RegisterAccount(t *testing.T) {
 
 	// Register account
 	resp, err := http.Post(
-		baseURL+"/api/accounts",
+		baseURL+"/api/v1/accounts",
 		"application/json",
 		bytes.NewReader(body),
 	)
@@ -43,7 +40,7 @@ func TestAccountHandler_RegisterAccount(t *testing.T) {
 
 	// Try registering same email - should fail with conflict
 	resp, err = http.Post(
-		baseURL+"/api/accounts",
+		baseURL+"/api/v1/accounts",
 		"application/json",
 		bytes.NewReader(body),
 	)
@@ -58,7 +55,7 @@ func TestAccountHandler_ListAccounts(t *testing.T) {
 	baseURL := integration.GetBaseURL()
 
 	// List accounts
-	resp, err := http.Get(baseURL + "/api/accounts")
+	resp, err := http.Get(baseURL + "/api/v1/accounts")
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
@@ -80,11 +77,11 @@ func TestAccountHandler_GetAccount(t *testing.T) {
 	payload := accounts.NewAccountRequest{Email: email}
 	body, _ := json.Marshal(payload)
 
-	resp, _ := http.Post(baseURL+"/api/accounts", "application/json", bytes.NewReader(body))
+	resp, _ := http.Post(baseURL+"/api/v1/accounts", "application/json", bytes.NewReader(body))
 	resp.Body.Close()
 
 	// Get all accounts and find ours
-	resp, _ = http.Get(baseURL + "/api/accounts")
+	resp, _ = http.Get(baseURL + "/api/v1/accounts")
 	respBody, _ := io.ReadAll(resp.Body)
 	resp.Body.Close()
 
@@ -94,15 +91,15 @@ func TestAccountHandler_GetAccount(t *testing.T) {
 	// Find our account by email
 	var accountID string
 	for _, acc := range accs {
-		if acc["Email"] == email {
-			accountID = acc["ID"].(string)
+		if acc["email"] == email {
+			accountID = acc["id"].(string)
 			break
 		}
 	}
 	require.NotEmpty(t, accountID, "Account not found in list")
 
 	// Get the specific account
-	resp, err := http.Get(baseURL + "/api/accounts/" + accountID)
+	resp, err := http.Get(baseURL + "/api/v1/accounts/" + accountID)
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
@@ -124,11 +121,11 @@ func TestAccountHandler_ChangeEmail(t *testing.T) {
 	payload := accounts.NewAccountRequest{Email: email}
 	body, _ := json.Marshal(payload)
 
-	resp, _ := http.Post(baseURL+"/api/accounts", "application/json", bytes.NewReader(body))
+	resp, _ := http.Post(baseURL+"/api/v1/accounts", "application/json", bytes.NewReader(body))
 	resp.Body.Close()
 
 	// Get account ID
-	resp, _ = http.Get(baseURL + "/api/accounts")
+	resp, _ = http.Get(baseURL + "/api/v1/accounts")
 	respBody, _ := io.ReadAll(resp.Body)
 	resp.Body.Close()
 
@@ -137,8 +134,8 @@ func TestAccountHandler_ChangeEmail(t *testing.T) {
 
 	var accountID string
 	for _, acc := range accs {
-		if acc["Email"] == email {
-			accountID = acc["ID"].(string)
+		if acc["email"] == email {
+			accountID = acc["id"].(string)
 			break
 		}
 	}
@@ -152,7 +149,7 @@ func TestAccountHandler_ChangeEmail(t *testing.T) {
 	}
 	changeBody, _ := json.Marshal(changePayload)
 
-	req, _ := http.NewRequest(http.MethodPut, baseURL+"/api/accounts/email", bytes.NewReader(changeBody))
+	req, _ := http.NewRequest(http.MethodPut, baseURL+"/api/v1/accounts/email", bytes.NewReader(changeBody))
 	req.Header.Set("Content-Type", "application/json")
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -161,7 +158,7 @@ func TestAccountHandler_ChangeEmail(t *testing.T) {
 	resp.Body.Close()
 
 	// Verify email changed by getting the account
-	resp, _ = http.Get(baseURL + "/api/accounts/" + accountID)
+	resp, _ = http.Get(baseURL + "/api/v1/accounts/" + accountID)
 	var account map[string]interface{}
 	json.NewDecoder(resp.Body).Decode(&account)
 	resp.Body.Close()
@@ -179,11 +176,11 @@ func TestAccountHandler_DeactivateAccount(t *testing.T) {
 	payload := accounts.NewAccountRequest{Email: email}
 	body, _ := json.Marshal(payload)
 
-	resp, _ := http.Post(baseURL+"/api/accounts", "application/json", bytes.NewReader(body))
+	resp, _ := http.Post(baseURL+"/api/v1/accounts", "application/json", bytes.NewReader(body))
 	resp.Body.Close()
 
 	// Get account ID
-	resp, _ = http.Get(baseURL + "/api/accounts")
+	resp, _ = http.Get(baseURL + "/api/v1/accounts")
 	respBody, _ := io.ReadAll(resp.Body)
 	resp.Body.Close()
 
@@ -192,8 +189,8 @@ func TestAccountHandler_DeactivateAccount(t *testing.T) {
 
 	var accountID string
 	for _, acc := range accs {
-		if acc["Email"] == email {
-			accountID = acc["ID"].(string)
+		if acc["email"] == email {
+			accountID = acc["id"].(string)
 			break
 		}
 	}
@@ -203,7 +200,7 @@ func TestAccountHandler_DeactivateAccount(t *testing.T) {
 	deactivatePayload := accounts.DeactivateAccountRequest{AccountID: accountID}
 	deactivateBody, _ := json.Marshal(deactivatePayload)
 
-	req, _ := http.NewRequest(http.MethodPut, baseURL+"/api/accounts/deactivate", bytes.NewReader(deactivateBody))
+	req, _ := http.NewRequest(http.MethodPut, baseURL+"/api/v1/accounts/deactivate", bytes.NewReader(deactivateBody))
 	req.Header.Set("Content-Type", "application/json")
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -212,7 +209,7 @@ func TestAccountHandler_DeactivateAccount(t *testing.T) {
 	resp.Body.Close()
 
 	// Verify isDeleted flag
-	resp, _ = http.Get(baseURL + "/api/accounts/" + accountID)
+	resp, _ = http.Get(baseURL + "/api/v1/accounts/" + accountID)
 	var account map[string]interface{}
 	json.NewDecoder(resp.Body).Decode(&account)
 	resp.Body.Close()
@@ -230,11 +227,11 @@ func TestAccountHandler_DisableAccount(t *testing.T) {
 	payload := accounts.NewAccountRequest{Email: email}
 	body, _ := json.Marshal(payload)
 
-	resp, _ := http.Post(baseURL+"/api/accounts", "application/json", bytes.NewReader(body))
+	resp, _ := http.Post(baseURL+"/api/v1/accounts", "application/json", bytes.NewReader(body))
 	resp.Body.Close()
 
 	// Get account ID
-	resp, _ = http.Get(baseURL + "/api/accounts")
+	resp, _ = http.Get(baseURL + "/api/v1/accounts")
 	respBody, _ := io.ReadAll(resp.Body)
 	resp.Body.Close()
 
@@ -243,8 +240,8 @@ func TestAccountHandler_DisableAccount(t *testing.T) {
 
 	var accountID string
 	for _, acc := range accs {
-		if acc["Email"] == email {
-			accountID = acc["ID"].(string)
+		if acc["email"] == email {
+			accountID = acc["id"].(string)
 			break
 		}
 	}
@@ -254,7 +251,7 @@ func TestAccountHandler_DisableAccount(t *testing.T) {
 	disablePayload := accounts.DisableAccountRequest{AccountID: accountID}
 	disableBody, _ := json.Marshal(disablePayload)
 
-	req, _ := http.NewRequest(http.MethodPut, baseURL+"/api/accounts/disable", bytes.NewReader(disableBody))
+	req, _ := http.NewRequest(http.MethodPut, baseURL+"/api/v1/accounts/disable", bytes.NewReader(disableBody))
 	req.Header.Set("Content-Type", "application/json")
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -273,11 +270,11 @@ func TestAccountHandler_EnableAccount(t *testing.T) {
 	payload := accounts.NewAccountRequest{Email: email}
 	body, _ := json.Marshal(payload)
 
-	resp, _ := http.Post(baseURL+"/api/accounts", "application/json", bytes.NewReader(body))
+	resp, _ := http.Post(baseURL+"/api/v1/accounts", "application/json", bytes.NewReader(body))
 	resp.Body.Close()
 
 	// Get account ID
-	resp, _ = http.Get(baseURL + "/api/accounts")
+	resp, _ = http.Get(baseURL + "/api/v1/accounts")
 	respBody, _ := io.ReadAll(resp.Body)
 	resp.Body.Close()
 
@@ -286,8 +283,8 @@ func TestAccountHandler_EnableAccount(t *testing.T) {
 
 	var accountID string
 	for _, acc := range accs {
-		if acc["Email"] == email {
-			accountID = acc["ID"].(string)
+		if acc["email"] == email {
+			accountID = acc["id"].(string)
 			break
 		}
 	}
@@ -297,7 +294,7 @@ func TestAccountHandler_EnableAccount(t *testing.T) {
 	enablePayload := accounts.EnableAccountRequest{AccountID: accountID}
 	enableBody, _ := json.Marshal(enablePayload)
 
-	req, _ := http.NewRequest(http.MethodPut, baseURL+"/api/accounts/enable", bytes.NewReader(enableBody))
+	req, _ := http.NewRequest(http.MethodPut, baseURL+"/api/v1/accounts/enable", bytes.NewReader(enableBody))
 	req.Header.Set("Content-Type", "application/json")
 	client := &http.Client{}
 	resp, err := client.Do(req)
