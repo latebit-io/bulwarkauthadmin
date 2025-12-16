@@ -66,7 +66,8 @@ func (m *MongoDBPermissionsRepository) Delete(ctx context.Context, key string) e
 func (m *MongoDBPermissionsRepository) ReadAll(ctx context.Context, paging shared.PageOptions) ([]Permission, error) {
 	collection := m.db.Collection(m.collectionName)
 	filter := bson.M{}
-	cursor, err := collection.Find(ctx, filter)
+	opts := options.Find().SetSkip(int64(paging.Page())).SetLimit(int64(paging.Size()))
+	cursor, err := collection.Find(ctx, filter, opts)
 	if err != nil {
 		return nil, err
 	}

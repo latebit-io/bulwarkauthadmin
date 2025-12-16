@@ -20,26 +20,16 @@ type UpdateRoleRequest struct {
 	Description string `json:"description"`
 }
 
-type DeleteRoleRequest struct {
-	Name string `json:"name"`
-}
-
-type GetRoleRequest struct {
-	Name string `json:"name"`
-}
-
 type ListRolesRequest struct {
 	Size int `json:"limit"`
 	Page int `json:"offset"`
 }
 
 type AddPermissionRoleRequest struct {
-	RoleName      string `json:"roleName"`
 	PermissionKey string `json:"permissionKey"`
 }
 
 type RemovePermissionRoleRequest struct {
-	RoleName      string `json:"roleName"`
 	PermissionKey string `json:"permissionKey"`
 }
 
@@ -149,6 +139,11 @@ func (r *RbacHandler) CreatePermission(c echo.Context) error {
 		httpError := problem.NewBadRequest(err)
 		return echo.NewHTTPError(httpError.Status, httpError)
 	}
+	// Validate that Name and Action are not empty
+	if newPermissionRequest.Name == "" || newPermissionRequest.Action == "" {
+		httpError := problem.NewBadRequest(errors.New("permission name and action are required and cannot be empty"))
+		return echo.NewHTTPError(httpError.Status, httpError)
+	}
 
 	ctx := c.Request().Context()
 	if err := r.permissionServices.CreatePermission(ctx, newPermissionRequest.Name, newPermissionRequest.Action); err != nil {
@@ -173,8 +168,16 @@ func (r *RbacHandler) CreatePermission(c echo.Context) error {
 func (r *RbacHandler) CreateRole(c echo.Context) error {
 	newRoleRequest := &NewRoleRequest{}
 	if err := c.Bind(newRoleRequest); err != nil {
-		return err
+		httpError := problem.NewBadRequest(err)
+		return echo.NewHTTPError(httpError.Status, httpError)
 	}
+
+	// Validate that Name and Description are not empty
+	if newRoleRequest.Name == "" || newRoleRequest.Description == "" {
+		httpError := problem.NewBadRequest(errors.New("role name and description are required and cannot be empty"))
+		return echo.NewHTTPError(httpError.Status, httpError)
+	}
+
 	ctx := c.Request().Context()
 	if err := r.roleServices.CreateRole(ctx, newRoleRequest.Name, newRoleRequest.Description); err != nil {
 		var roleDuplicateError rbac.RoleDuplicateError
@@ -225,7 +228,7 @@ func (r *RbacHandler) UpdateRole(c echo.Context) error {
 		return echo.NewHTTPError(httpError.Status, httpError)
 	}
 
-	return c.NoContent(http.StatusCreated)
+	return c.NoContent(http.StatusNoContent)
 }
 
 func (r *RbacHandler) DeleteRole(c echo.Context) error {

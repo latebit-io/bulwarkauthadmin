@@ -94,6 +94,7 @@ func (m *MongoDBRolesRepository) Read(ctx context.Context, roleName string) (*Ro
 // Update implements RolesRepository.
 func (m *MongoDBRolesRepository) Update(ctx context.Context, role Role) error {
 	collection := m.db.Collection(m.collectionName)
+	role.Modified = time.Now()
 	filter := bson.M{"name": role.Name}
 	update := bson.M{"$set": role}
 	_, err := collection.UpdateOne(ctx, filter, update)

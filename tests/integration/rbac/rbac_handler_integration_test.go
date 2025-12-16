@@ -134,7 +134,7 @@ func TestRbacHandler_UpdateRole(t *testing.T) {
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	require.NoError(t, err)
-	assert.Equal(t, http.StatusCreated, resp.StatusCode)
+	assert.Equal(t, http.StatusNoContent, resp.StatusCode)
 	resp.Body.Close()
 
 	// Verify the update

@@ -3,6 +3,7 @@ package rbac
 import (
 	"context"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
@@ -23,6 +24,7 @@ func NewRole(name, description string) Role {
 		ID:          uuid.New().String(),
 		Name:        name,
 		Description: description,
+		Permissions: []string{},
 		Created:     time.Now(),
 		Modified:    time.Now(),
 	}
@@ -38,6 +40,9 @@ func (r *Role) RemovePermission(permissionName string) {
 }
 
 func (r *Role) AddPermission(permissionName string) {
+	if slices.Contains(r.Permissions, permissionName) {
+		return
+	}
 	r.Permissions = append(r.Permissions, permissionName)
 }
 
@@ -120,14 +125,7 @@ func (r *RoleServiceDefault) AddPermission(ctx context.Context, roleName string,
 
 // CreateRole implements RoleService.
 func (r *RoleServiceDefault) CreateRole(ctx context.Context, name string, description string) error {
-	newRole := Role{
-		ID:          uuid.New().String(),
-		Name:        name,
-		Description: description,
-		Created:     time.Now(),
-		Modified:    time.Now(),
-	}
-	if err := r.roleRepository.Create(ctx, newRole); err != nil {
+	if err := r.roleRepository.Create(ctx, NewRole(name, description)); err != nil {
 		return err
 	}
 	return nil

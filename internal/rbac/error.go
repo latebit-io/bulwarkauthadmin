@@ -31,5 +31,5 @@ type PermissionDuplicateError struct {
 }
 
 func (e PermissionDuplicateError) Error() string {
-	return fmt.Sprintf("duplicate role: '%s' already exists", e.Value)
+	return fmt.Sprintf("duplicate permission: '%s' already exists", e.Value)
 }
