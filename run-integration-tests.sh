@@ -53,7 +53,7 @@ SERVICE_PID=$!
 # Wait for service to be ready
 echo -e "${YELLOW}4. Waiting for service to be ready...${NC}"
 for i in {1..60}; do
-    if curl -s http://localhost:8080/api/accounts > /dev/null 2>&1; then
+    if curl -s http://localhost:8080/api/v1/accounts > /dev/null 2>&1; then
         echo -e "${GREEN}Service is ready!${NC}"
         break
     fi
