@@ -340,7 +340,7 @@ func TestRbacHandler_RolePermissionFlow(t *testing.T) {
 	}
 	removePermBody, _ := json.Marshal(removePermPayload)
 
-	req, _ = http.NewRequest(http.MethodDelete, baseURL+"/api/v1/rbac/roles/"+roleName+"/permissions", bytes.NewReader(removePermBody))
+	req, _ = http.NewRequest(http.MethodDelete, baseURL+"/api/v1/rbac/roles/"+roleName+"/permissions/"+removePermPayload.PermissionKey, bytes.NewReader(removePermBody))
 	req.Header.Set("Content-Type", "application/json")
 	resp, err = client.Do(req)
 	require.NoError(t, err)

@@ -9,7 +9,7 @@ func RbacRoutesV1(e *echo.Echo, handler RbacHandler) {
 	e.PUT("/api/v1/rbac/roles/:id", handler.UpdateRole)
 	e.DELETE("/api/v1/rbac/roles/:id", handler.DeleteRole)
 	e.PUT("/api/v1/rbac/roles/:id/permissions", handler.AddPermissionToRole)
-	e.DELETE("/api/v1/rbac/roles/:id/permissions", handler.RemovePermissionFromRole)
+	e.DELETE("/api/v1/rbac/roles/:id/permissions/:permissionid", handler.RemovePermissionFromRole)
 	e.POST("/api/v1/rbac/permissions", handler.CreatePermission)
 	e.GET("/api/v1/rbac/permissions/exists/:id", handler.DoesPermissionExist)
 	e.GET("/api/v1/rbac/permissions", handler.ListPermissions)

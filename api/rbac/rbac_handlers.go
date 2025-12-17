@@ -334,11 +334,15 @@ func (r *RbacHandler) RemovePermissionFromRole(c echo.Context) error {
 		return echo.NewHTTPError(httpError.Status, httpError)
 	}
 
-	ctx := c.Request().Context()
-	removePermissionRequest := &RemovePermissionRoleRequest{}
-	if err := c.Bind(removePermissionRequest); err != nil {
-		httpError := problem.NewBadRequest(err)
+	permissionKey := c.Param("permissionid")
+	if permissionKey == "" {
+		httpError := problem.NewBadRequest(errors.New("permission name is required"))
 		return echo.NewHTTPError(httpError.Status, httpError)
+	}
+
+	ctx := c.Request().Context()
+	removePermissionRequest := &RemovePermissionRoleRequest{
+		PermissionKey: permissionKey,
 	}
 
 	err := r.roleServices.RemovePermission(ctx, roleName, removePermissionRequest.PermissionKey)
