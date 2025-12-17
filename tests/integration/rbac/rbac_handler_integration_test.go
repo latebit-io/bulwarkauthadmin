@@ -251,15 +251,8 @@ func TestRbacHandler_DeletePermission(t *testing.T) {
 	resp, _ := http.Post(baseURL+"/api/v1/rbac/permissions", "application/json", bytes.NewReader(body))
 	resp.Body.Close()
 
-	// Delete the permission
-	deletePayload := rbac.DeletePermissionRequest{
-		Name:   permissionName,
-		Action: "delete",
-	}
-	deleteBody, _ := json.Marshal(deletePayload)
-
 	permissionKey := fmt.Sprintf("%s:%s", permissionName, "delete")
-	req, _ := http.NewRequest(http.MethodDelete, baseURL+"/api/v1/rbac/permissions/"+permissionKey, bytes.NewReader(deleteBody))
+	req, _ := http.NewRequest(http.MethodDelete, baseURL+"/api/v1/rbac/permissions/"+permissionKey, nil)
 	req.Header.Set("Content-Type", "application/json")
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -334,13 +327,7 @@ func TestRbacHandler_RolePermissionFlow(t *testing.T) {
 	rolePermissions := role["permissionIds"].([]interface{})
 	assert.Contains(t, rolePermissions, permissionKey)
 
-	// Remove permission from role (only permissionKey in body, roleName from path)
-	removePermPayload := rbac.RemovePermissionRoleRequest{
-		PermissionKey: permissionKey,
-	}
-	removePermBody, _ := json.Marshal(removePermPayload)
-
-	req, _ = http.NewRequest(http.MethodDelete, baseURL+"/api/v1/rbac/roles/"+roleName+"/permissions/"+removePermPayload.PermissionKey, bytes.NewReader(removePermBody))
+	req, _ = http.NewRequest(http.MethodDelete, baseURL+"/api/v1/rbac/roles/"+roleName+"/permissions/"+permissionKey, nil)
 	req.Header.Set("Content-Type", "application/json")
 	resp, err = client.Do(req)
 	require.NoError(t, err)

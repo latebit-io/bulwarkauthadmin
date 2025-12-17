@@ -3,6 +3,7 @@ package rbac
 import (
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/labstack/echo/v4"
 	"github.com/latebit-io/bulwarkauthadmin/api/problem"
@@ -28,11 +29,6 @@ type ListRolesRequest struct {
 type AddPermissionRoleRequest struct {
 	PermissionKey string `json:"permissionKey"`
 }
-
-type RemovePermissionRoleRequest struct {
-	PermissionKey string `json:"permissionKey"`
-}
-
 type RbacHandler struct {
 	roleServices       rbac.RoleService
 	permissionServices rbac.PermissionService
@@ -106,16 +102,11 @@ func (r *RbacHandler) DeletePermission(c echo.Context) error {
 		return echo.NewHTTPError(httpError.Status, httpError)
 	}
 
+	name := strings.Split(permissionKey, ":")[0]
+	action := strings.Split(permissionKey, ":")[1]
+
 	ctx := c.Request().Context()
-
-	// Permission key format is "name:action", need to parse it
-	deletePermissionRequest := &DeletePermissionRequest{}
-	if err := c.Bind(deletePermissionRequest); err != nil {
-		httpError := problem.NewBadRequest(err)
-		return echo.NewHTTPError(httpError.Status, httpError)
-	}
-
-	if err := r.permissionServices.DeletePermission(ctx, deletePermissionRequest.Name, deletePermissionRequest.Action); err != nil {
+	if err := r.permissionServices.DeletePermission(ctx, name, action); err != nil {
 		var permissionNotFoundError rbac.PermissionNotFoundError
 		notFound := errors.As(err, &permissionNotFoundError)
 		if notFound {
@@ -334,18 +325,14 @@ func (r *RbacHandler) RemovePermissionFromRole(c echo.Context) error {
 		return echo.NewHTTPError(httpError.Status, httpError)
 	}
 
-	permissionKey := c.Param("permissionid")
+	permissionKey := c.Param("permissionId")
 	if permissionKey == "" {
-		httpError := problem.NewBadRequest(errors.New("permission name is required"))
+		httpError := problem.NewBadRequest(errors.New("permission key is required"))
 		return echo.NewHTTPError(httpError.Status, httpError)
 	}
 
 	ctx := c.Request().Context()
-	removePermissionRequest := &RemovePermissionRoleRequest{
-		PermissionKey: permissionKey,
-	}
-
-	err := r.roleServices.RemovePermission(ctx, roleName, removePermissionRequest.PermissionKey)
+	err := r.roleServices.RemovePermission(ctx, roleName, permissionKey)
 	if err != nil {
 		httpError := problem.NewServerError(err)
 		return echo.NewHTTPError(httpError.Status, httpError)
