@@ -1,6 +1,7 @@
 package rbac
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
@@ -56,14 +57,20 @@ func (ah *AccountRBACHandler) AssignRole(c echo.Context) error {
 }
 
 func (ah *AccountRBACHandler) RemoveRole(c echo.Context) error {
-	removeRoleRequest := new(RemoveRoleRequest)
-	err := c.Bind(removeRoleRequest)
-	if err != nil {
-		httpError := problem.NewBadRequest(err)
+	accountID := c.Param("id")
+	if accountID == "" {
+		httpError := problem.NewBadRequest(errors.New("account is required"))
 		return echo.NewHTTPError(httpError.Status, httpError)
 	}
+
+	role := c.Param("role")
+	if role == "" {
+		httpError := problem.NewBadRequest(errors.New("role is required"))
+		return echo.NewHTTPError(httpError.Status, httpError)
+	}
+
 	ctx := c.Request().Context()
-	err = ah.accountRbacService.RemoveRole(ctx, removeRoleRequest.AccountID, removeRoleRequest.Role)
+	err := ah.accountRbacService.RemoveRole(ctx, accountID, role)
 	if err != nil {
 		httpError := problem.NewServerError(err)
 		return echo.NewHTTPError(httpError.Status, httpError)
@@ -90,14 +97,20 @@ func (ah *AccountRBACHandler) AssignPermission(c echo.Context) error {
 }
 
 func (ah *AccountRBACHandler) RemovePermission(c echo.Context) error {
-	removePermissionRequest := new(RemovePermissionRequest)
-	err := c.Bind(removePermissionRequest)
-	if err != nil {
-		httpError := problem.NewBadRequest(err)
+	accountID := c.Param("id")
+	if accountID == "" {
+		httpError := problem.NewBadRequest(errors.New("account is required"))
 		return echo.NewHTTPError(httpError.Status, httpError)
 	}
+
+	permission := c.Param("permission")
+	if permission == "" {
+		httpError := problem.NewBadRequest(errors.New("role is required"))
+		return echo.NewHTTPError(httpError.Status, httpError)
+	}
+
 	ctx := c.Request().Context()
-	err = ah.accountRbacService.RemovePermission(ctx, removePermissionRequest.AccountID, removePermissionRequest.Permission)
+	err := ah.accountRbacService.RemovePermission(ctx, accountID, permission)
 	if err != nil {
 		httpError := problem.NewServerError(err)
 		return echo.NewHTTPError(httpError.Status, httpError)

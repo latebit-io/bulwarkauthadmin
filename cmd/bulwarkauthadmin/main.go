@@ -13,9 +13,11 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	accountsapi "github.com/latebit-io/bulwarkauthadmin/api/accounts"
+	accountsrbacapi "github.com/latebit-io/bulwarkauthadmin/api/accounts/rbac"
 	"github.com/latebit-io/bulwarkauthadmin/api/health"
 	rbacapi "github.com/latebit-io/bulwarkauthadmin/api/rbac"
 	"github.com/latebit-io/bulwarkauthadmin/internal/accounts"
+	accountsRbac "github.com/latebit-io/bulwarkauthadmin/internal/accounts/rbac"
 	"github.com/latebit-io/bulwarkauthadmin/internal/rbac"
 	"github.com/latebit-io/bulwarkauthadmin/internal/version"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -67,6 +69,10 @@ func main() {
 	accountsManagmentService := accounts.NewAccountManagementServiceDefault(accountRepository)
 	accountsHandler := accountsapi.NewAccountHandler(accountsManagmentService)
 	accountsapi.AccountRoutesV1(service, accountsHandler)
+
+	accountsRbac := accountsRbac.NewAccountRBACServiceDefault(accountRepository)
+	accountsRbacHandler := accountsrbacapi.NewAccountRBACHandler(accountsRbac)
+	accountsrbacapi.AccountRBACRoutesV1(service, *accountsRbacHandler)
 
 	permissionsRepository := rbac.NewMongoDBPermissionsRepository(mongodb)
 	rolesRepository := rbac.NewMongoDBRolesRepository(mongodb)

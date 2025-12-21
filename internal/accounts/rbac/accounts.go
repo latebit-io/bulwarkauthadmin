@@ -14,12 +14,12 @@ type AccountRBACService interface {
 	RemovePermission(ctx context.Context, accountID, permission string) error
 }
 
-type accountRBACService struct {
+type AccountRBACServiceDefault struct {
 	accountRepo accounts.AccountRepository
 }
 
 // AssignPermission implements AccountRBACService.
-func (a *accountRBACService) AssignPermission(ctx context.Context, accountID string, permission string) error {
+func (a *AccountRBACServiceDefault) AssignPermission(ctx context.Context, accountID string, permission string) error {
 	account, err := a.accountRepo.ReadById(ctx, accountID)
 	if err != nil {
 		return err
@@ -35,7 +35,7 @@ func (a *accountRBACService) AssignPermission(ctx context.Context, accountID str
 }
 
 // AssignRole implements AccountRBACService.
-func (a *accountRBACService) AssignRole(ctx context.Context, accountID string, role string) error {
+func (a *AccountRBACServiceDefault) AssignRole(ctx context.Context, accountID string, role string) error {
 	account, err := a.accountRepo.ReadById(ctx, accountID)
 	if err != nil {
 		return err
@@ -51,7 +51,7 @@ func (a *accountRBACService) AssignRole(ctx context.Context, accountID string, r
 }
 
 // RemovePermission implements AccountRBACService.
-func (a *accountRBACService) RemovePermission(ctx context.Context, accountID string, permission string) error {
+func (a *AccountRBACServiceDefault) RemovePermission(ctx context.Context, accountID string, permission string) error {
 	account, err := a.accountRepo.ReadById(ctx, accountID)
 	if err != nil {
 		return err
@@ -68,7 +68,7 @@ func (a *accountRBACService) RemovePermission(ctx context.Context, accountID str
 }
 
 // RemoveRole implements AccountRBACService.
-func (a *accountRBACService) RemoveRole(ctx context.Context, accountID string, role string) error {
+func (a *AccountRBACServiceDefault) RemoveRole(ctx context.Context, accountID string, role string) error {
 	account, err := a.accountRepo.ReadById(ctx, accountID)
 	if err != nil {
 		return err
@@ -84,8 +84,8 @@ func (a *accountRBACService) RemoveRole(ctx context.Context, accountID string, r
 	return a.accountRepo.Update(ctx, *account)
 }
 
-func NewAccountRBACService(accountRepo accounts.AccountRepository) AccountRBACService {
-	return &accountRBACService{
+func NewAccountRBACServiceDefault(accountRepo accounts.AccountRepository) AccountRBACService {
+	return &AccountRBACServiceDefault{
 		accountRepo: accountRepo,
 	}
 }
