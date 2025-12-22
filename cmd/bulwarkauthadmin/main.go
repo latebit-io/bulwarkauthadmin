@@ -70,8 +70,8 @@ func main() {
 	accountsHandler := accountsapi.NewAccountHandler(accountsManagmentService)
 	accountsapi.AccountRoutesV1(service, accountsHandler)
 
-	accountsRbac := accountsRbac.NewAccountRBACServiceDefault(accountRepository)
-	accountsRbacHandler := accountsrbacapi.NewAccountRBACHandler(accountsRbac)
+	accountsRBAC := accountsRbac.NewAccountRBACServiceDefault(accountRepository)
+	accountsRbacHandler := accountsrbacapi.NewAccountRBACHandler(accountsRBAC)
 	accountsrbacapi.AccountRBACRoutesV1(service, *accountsRbacHandler)
 
 	permissionsRepository := rbac.NewMongoDBPermissionsRepository(mongodb)

@@ -14,9 +14,14 @@ type AssignRoleRequest struct {
 	Role      string `json:"role"`
 }
 
-type RemoveRoleRequest struct {
-	AccountID string `json:"accountId"`
-	Role      string `json:"role"`
+func (r AssignRoleRequest) Validate() error {
+	if r.AccountID == "" {
+		return errors.New("account id is required")
+	}
+	if r.Role == "" {
+		return errors.New("role is required")
+	}
+	return nil
 }
 
 type AssignPermissionRequest struct {
@@ -24,9 +29,14 @@ type AssignPermissionRequest struct {
 	Permission string `json:"permission"`
 }
 
-type RemovePermissionRequest struct {
-	AccountID  string `json:"accountId"`
-	Permission string `json:"permission"`
+func (r AssignPermissionRequest) Validate() error {
+	if r.AccountID == "" {
+		return errors.New("account id is required")
+	}
+	if r.Permission == "" {
+		return errors.New("permission is required")
+	}
+	return nil
 }
 
 type AccountRBACHandler struct {
@@ -42,6 +52,12 @@ func NewAccountRBACHandler(accountRbacService rbac.AccountRBACService) *AccountR
 func (ah *AccountRBACHandler) AssignRole(c echo.Context) error {
 	assignRoleRequest := new(AssignRoleRequest)
 	err := c.Bind(assignRoleRequest)
+	if err != nil {
+		httpError := problem.NewBadRequest(err)
+		return echo.NewHTTPError(httpError.Status, httpError)
+	}
+
+	err = assignRoleRequest.Validate()
 	if err != nil {
 		httpError := problem.NewBadRequest(err)
 		return echo.NewHTTPError(httpError.Status, httpError)
@@ -82,6 +98,11 @@ func (ah *AccountRBACHandler) RemoveRole(c echo.Context) error {
 func (ah *AccountRBACHandler) AssignPermission(c echo.Context) error {
 	assignPermissionRequest := new(AssignPermissionRequest)
 	err := c.Bind(assignPermissionRequest)
+	if err != nil {
+		httpError := problem.NewBadRequest(err)
+		return echo.NewHTTPError(httpError.Status, httpError)
+	}
+	err = assignPermissionRequest.Validate()
 	if err != nil {
 		httpError := problem.NewBadRequest(err)
 		return echo.NewHTTPError(httpError.Status, httpError)
