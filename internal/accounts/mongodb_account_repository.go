@@ -36,6 +36,7 @@ func NewMongoDBAccountRepository(db *mongo.Database) AccountRepository {
 
 // ReadById implements AccountRepository.
 func (m *MongoDBAccountRepository) ReadById(ctx context.Context, id string) (*Account, error) {
+	id = strings.TrimSpace(id)
 	collection := m.db.Collection(accountCollection)
 	result := collection.FindOne(ctx, bson.D{{Key: "id", Value: id}})
 	var account Account
@@ -101,6 +102,7 @@ func (m *MongoDBAccountRepository) Create(ctx context.Context, accountModel Acco
 
 // Delete implements AccountRepository.
 func (m *MongoDBAccountRepository) Delete(ctx context.Context, accountId string) error {
+	accountId = strings.TrimSpace(accountId)
 	collection := m.db.Collection(accountCollection)
 	result, err := collection.DeleteOne(ctx, bson.D{{Key: "id", Value: accountId}})
 	if err != nil {
@@ -139,6 +141,7 @@ func (m *MongoDBAccountRepository) ReadAll(ctx context.Context, options shared.P
 
 // ReadByEmail implements AccountRepository.
 func (m *MongoDBAccountRepository) ReadByEmail(ctx context.Context, email string) (*Account, error) {
+	email = strings.TrimSpace(email)
 	collection := m.db.Collection(accountCollection)
 	result := collection.FindOne(ctx, bson.D{{Key: "email", Value: email}})
 	var account Account

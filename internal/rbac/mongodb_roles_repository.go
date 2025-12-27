@@ -3,6 +3,7 @@ package rbac
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/latebit-io/bulwarkauthadmin/internal/shared"
@@ -64,6 +65,7 @@ func (m *MongoDBRolesRepository) Create(ctx context.Context, role Role) error {
 
 // Delete implements RolesRepository.
 func (m *MongoDBRolesRepository) Delete(ctx context.Context, roleName string) error {
+	roleName = strings.TrimSpace(roleName)
 	collection := m.db.Collection(m.collectionName)
 	filter := bson.M{"name": roleName}
 	result, err := collection.DeleteOne(ctx, filter)
@@ -78,6 +80,7 @@ func (m *MongoDBRolesRepository) Delete(ctx context.Context, roleName string) er
 
 // Read implements RolesRepository.
 func (m *MongoDBRolesRepository) Read(ctx context.Context, roleName string) (*Role, error) {
+	roleName = strings.TrimSpace(roleName)
 	collection := m.db.Collection(m.collectionName)
 	filter := bson.M{"name": roleName}
 	var role Role

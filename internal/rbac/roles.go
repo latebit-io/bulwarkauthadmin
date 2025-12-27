@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -23,8 +24,8 @@ type Role struct {
 func NewRole(name, description string) Role {
 	return Role{
 		ID:          uuid.New().String(),
-		Name:        name,
-		Description: description,
+		Name:        strings.TrimSpace(name),
+		Description: strings.TrimSpace(description),
 		Permissions: []string{},
 		Created:     time.Now(),
 		Modified:    time.Now(),
@@ -41,7 +42,7 @@ func (r *Role) RemovePermission(permissionName string) {
 }
 
 func (r *Role) AddPermission(permissionName string) {
-	if slices.Contains(r.Permissions, permissionName) {
+	if slices.Contains(r.Permissions, strings.TrimSpace(permissionName)) {
 		return
 	}
 	r.Permissions = append(r.Permissions, permissionName)
@@ -57,6 +58,8 @@ type Permission struct {
 }
 
 func NewPermission(name, action string) Permission {
+	name = strings.TrimSpace(name)
+	action = strings.TrimSpace(action)
 	return Permission{
 		ID:       uuid.New().String(),
 		Key:      fmt.Sprintf("%s:%s", name, action),
@@ -206,12 +209,9 @@ func (p PermissionServiceDefault) DeletePermission(ctx context.Context, name str
 func (p PermissionServiceDefault) DoesPermissionExist(ctx context.Context, permissionKey string) (bool, error) {
 	_, err := p.permissionRepository.Read(ctx, permissionKey)
 	if err != nil {
-		if err != nil {
-			var notFoundErr PermissionNotFoundError
-			if errors.As(err, &notFoundErr) {
-				return false, nil
-			}
-			return false, err
+		var notFoundErr PermissionNotFoundError
+		if errors.As(err, &notFoundErr) {
+			return false, nil
 		}
 		return false, err
 	}
