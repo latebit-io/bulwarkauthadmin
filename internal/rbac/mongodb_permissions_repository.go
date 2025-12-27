@@ -3,6 +3,7 @@ package rbac
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/latebit-io/bulwarkauthadmin/internal/shared"
@@ -20,6 +21,7 @@ type MongoDBPermissionsRepository struct {
 
 // Read implements PermissionsRepository.
 func (m *MongoDBPermissionsRepository) Read(ctx context.Context, key string) (*Permission, error) {
+	key = strings.TrimSpace(key)
 	collection := m.db.Collection(m.collectionName)
 	filter := bson.M{"key": key}
 	var permission Permission
@@ -50,6 +52,7 @@ func (m *MongoDBPermissionsRepository) Create(ctx context.Context, permission Pe
 
 // Delete implements PermissionsRepository.
 func (m *MongoDBPermissionsRepository) Delete(ctx context.Context, key string) error {
+	key = strings.TrimSpace(key)
 	collection := m.db.Collection(m.collectionName)
 	filter := bson.M{"key": key}
 	result, err := collection.DeleteOne(ctx, filter)
