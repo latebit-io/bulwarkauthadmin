@@ -39,8 +39,8 @@ type UnlinkSocialRequest struct {
 	Provider  string `json:"provider"`
 }
 
-func NewAccountHandler(service accounts.AccountManagementService) AccountHandler {
-	return AccountHandler{service}
+func NewAccountHandler(service accounts.AccountManagementService) *AccountHandler {
+	return &AccountHandler{service}
 }
 
 // RegisterAccount handles the creation of a new account based on the provided email and password in the request payload.

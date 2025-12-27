@@ -34,8 +34,8 @@ type RbacHandler struct {
 	permissionServices rbac.PermissionService
 }
 
-func NewRbacHandler(roleServices rbac.RoleService, permissionServices rbac.PermissionService) RbacHandler {
-	return RbacHandler{
+func NewRbacHandler(roleServices rbac.RoleService, permissionServices rbac.PermissionService) *RbacHandler {
+	return &RbacHandler{
 		roleServices:       roleServices,
 		permissionServices: permissionServices,
 	}

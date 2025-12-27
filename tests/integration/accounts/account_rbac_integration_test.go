@@ -1,5 +1,3 @@
-//go:build integration
-
 package accounts
 
 import (
@@ -12,6 +10,8 @@ import (
 
 	"github.com/latebit-io/bulwarkauthadmin/api/accounts"
 	rbacapi "github.com/latebit-io/bulwarkauthadmin/api/accounts/rbac"
+	"github.com/latebit-io/bulwarkauthadmin/api/rbac"
+	a "github.com/latebit-io/bulwarkauthadmin/internal/accounts"
 	"github.com/latebit-io/bulwarkauthadmin/tests/integration"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -47,16 +47,30 @@ func TestAccountRBACHandler_AssignRole(t *testing.T) {
 	}
 	require.NotEmpty(t, accountID, "Account not found")
 
+	// Create "admin" role
+	rolePayload := rbac.NewRoleRequest{
+		Name:        "admin",
+		Description: "admin role",
+	}
+	roleBody, _ := json.Marshal(rolePayload)
+
+	req, _ := http.NewRequest(http.MethodPost, baseURL+"/api/v1/rbac/roles", bytes.NewReader(roleBody))
+	req.Header.Set("Content-Type", "application/json")
+	client := &http.Client{}
+	resp, err = client.Do(req)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusCreated, resp.StatusCode)
+	resp.Body.Close()
+
 	// Assign role to account
 	assignPayload := rbacapi.AssignRoleRequest{
-		AccountID: accountID,
-		Role:      "admin",
+		Role: "admin",
 	}
 	assignBody, _ := json.Marshal(assignPayload)
 
-	req, _ := http.NewRequest(http.MethodPatch, baseURL+"/api/v1/accounts/"+accountID+"/rbac/role", bytes.NewReader(assignBody))
+	req, _ = http.NewRequest(http.MethodPatch, baseURL+"/api/v1/accounts/"+accountID+"/rbac/role", bytes.NewReader(assignBody))
 	req.Header.Set("Content-Type", "application/json")
-	client := &http.Client{}
+	client = &http.Client{}
 	resp, err = client.Do(req)
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusNoContent, resp.StatusCode)
@@ -64,13 +78,12 @@ func TestAccountRBACHandler_AssignRole(t *testing.T) {
 
 	// Verify role was assigned
 	resp, _ = http.Get(baseURL + "/api/v1/accounts/" + accountID)
-	var account map[string]interface{}
+	var account a.Account
 	json.NewDecoder(resp.Body).Decode(&account)
 	resp.Body.Close()
 
-	roles := account["roles"].([]interface{})
-	assert.Len(t, roles, 1)
-	assert.Equal(t, "admin", roles[0])
+	assert.Len(t, account.Roles, 1)
+	assert.Equal(t, "admin", account.Roles[0])
 }
 
 func TestAccountRBACHandler_AssignRole_Idempotent(t *testing.T) {
@@ -101,15 +114,29 @@ func TestAccountRBACHandler_AssignRole_Idempotent(t *testing.T) {
 	}
 	require.NotEmpty(t, accountID)
 
+	// Create "admin" role
+	rolePayload := rbac.NewRoleRequest{
+		Name:        "editor",
+		Description: "editor role",
+	}
+	roleBody, _ := json.Marshal(rolePayload)
+
+	req, _ := http.NewRequest(http.MethodPost, baseURL+"/api/v1/rbac/roles", bytes.NewReader(roleBody))
+	req.Header.Set("Content-Type", "application/json")
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusCreated, resp.StatusCode)
+	resp.Body.Close()
+
 	// Assign role twice
 	assignPayload := rbacapi.AssignRoleRequest{
-		AccountID: accountID,
-		Role:      "editor",
+		Role: "editor",
 	}
 	assignBody, _ := json.Marshal(assignPayload)
 
-	client := &http.Client{}
-	req, _ := http.NewRequest(http.MethodPatch, baseURL+"/api/v1/accounts/"+accountID+"/rbac/role", bytes.NewReader(assignBody))
+	client = &http.Client{}
+	req, _ = http.NewRequest(http.MethodPatch, baseURL+"/api/v1/accounts/"+accountID+"/rbac/role", bytes.NewReader(assignBody))
 	req.Header.Set("Content-Type", "application/json")
 	resp, _ = client.Do(req)
 	resp.Body.Close()
@@ -117,7 +144,7 @@ func TestAccountRBACHandler_AssignRole_Idempotent(t *testing.T) {
 	// Assign same role again
 	req, _ = http.NewRequest(http.MethodPatch, baseURL+"/api/v1/accounts/"+accountID+"/rbac/role", bytes.NewReader(assignBody))
 	req.Header.Set("Content-Type", "application/json")
-	resp, err := client.Do(req)
+	resp, err = client.Do(req)
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusNoContent, resp.StatusCode)
 	resp.Body.Close()
@@ -161,13 +188,26 @@ func TestAccountRBACHandler_AssignMultipleRoles(t *testing.T) {
 	}
 	require.NotEmpty(t, accountID)
 
-	// Assign multiple roles
+	// Create roles first
 	client := &http.Client{}
 	roles := []string{"admin", "editor", "viewer"}
+	for _, roleName := range roles {
+		rolePayload := rbac.NewRoleRequest{
+			Name:        roleName,
+			Description: roleName + " role",
+		}
+		roleBody, _ := json.Marshal(rolePayload)
+
+		req, _ := http.NewRequest(http.MethodPost, baseURL+"/api/v1/rbac/roles", bytes.NewReader(roleBody))
+		req.Header.Set("Content-Type", "application/json")
+		resp, _ = client.Do(req)
+		resp.Body.Close()
+	}
+
+	// Assign multiple roles
 	for _, role := range roles {
 		assignPayload := rbacapi.AssignRoleRequest{
-			AccountID: accountID,
-			Role:      role,
+			Role: role,
 		}
 		assignBody, _ := json.Marshal(assignPayload)
 
@@ -224,15 +264,26 @@ func TestAccountRBACHandler_RemoveRole(t *testing.T) {
 	}
 	require.NotEmpty(t, accountID)
 
-	// Assign role first
+	// Create "admin" role first
+	rolePayload := rbac.NewRoleRequest{
+		Name:        "admin",
+		Description: "admin role",
+	}
+	roleBody, _ := json.Marshal(rolePayload)
+
+	client := &http.Client{}
+	req, _ := http.NewRequest(http.MethodPost, baseURL+"/api/v1/rbac/roles", bytes.NewReader(roleBody))
+	req.Header.Set("Content-Type", "application/json")
+	resp, _ = client.Do(req)
+	resp.Body.Close()
+
+	// Assign role to account
 	assignPayload := rbacapi.AssignRoleRequest{
-		AccountID: accountID,
-		Role:      "admin",
+		Role: "admin",
 	}
 	assignBody, _ := json.Marshal(assignPayload)
 
-	client := &http.Client{}
-	req, _ := http.NewRequest(http.MethodPatch, baseURL+"/api/v1/accounts/"+accountID+"/rbac/role", bytes.NewReader(assignBody))
+	req, _ = http.NewRequest(http.MethodPatch, baseURL+"/api/v1/accounts/"+accountID+"/rbac/role", bytes.NewReader(assignBody))
 	req.Header.Set("Content-Type", "application/json")
 	resp, _ = client.Do(req)
 	resp.Body.Close()
@@ -321,17 +372,31 @@ func TestAccountRBACHandler_AssignPermission(t *testing.T) {
 	}
 	require.NotEmpty(t, accountID)
 
+	// Create permission before adding to account
+	createPermissionPayload := rbac.NewPermissionRequest{
+		Name:   "users",
+		Action: "delete",
+	}
+	createPermissionBody, _ := json.Marshal(createPermissionPayload)
+
+	client := &http.Client{}
+	req, _ := http.NewRequest(http.MethodPost, baseURL+"/api/v1/rbac/permissions", bytes.NewReader(createPermissionBody))
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := client.Do(req)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusCreated, resp.StatusCode)
+	resp.Body.Close()
+
 	// Assign permission to account
 	assignPayload := rbacapi.AssignPermissionRequest{
-		AccountID:  accountID,
 		Permission: "users:delete",
 	}
 	assignBody, _ := json.Marshal(assignPayload)
 
-	client := &http.Client{}
-	req, _ := http.NewRequest(http.MethodPatch, baseURL+"/api/v1/accounts/"+accountID+"/rbac/permission", bytes.NewReader(assignBody))
+	client = &http.Client{}
+	req, _ = http.NewRequest(http.MethodPatch, baseURL+"/api/v1/accounts/"+accountID+"/rbac/permission", bytes.NewReader(assignBody))
 	req.Header.Set("Content-Type", "application/json")
-	resp, err := client.Do(req)
+	resp, err = client.Do(req)
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusNoContent, resp.StatusCode)
 	resp.Body.Close()
@@ -375,15 +440,29 @@ func TestAccountRBACHandler_AssignPermission_Idempotent(t *testing.T) {
 	}
 	require.NotEmpty(t, accountID)
 
+	// Create permission before adding to account
+	createPermissionPayload := rbac.NewPermissionRequest{
+		Name:   "posts",
+		Action: "create",
+	}
+	createPermissionBody, _ := json.Marshal(createPermissionPayload)
+
+	client := &http.Client{}
+	req, _ := http.NewRequest(http.MethodPost, baseURL+"/api/v1/rbac/permissions", bytes.NewReader(createPermissionBody))
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := client.Do(req)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusCreated, resp.StatusCode)
+	resp.Body.Close()
+
 	// Assign permission twice
 	assignPayload := rbacapi.AssignPermissionRequest{
-		AccountID:  accountID,
 		Permission: "posts:create",
 	}
 	assignBody, _ := json.Marshal(assignPayload)
 
-	client := &http.Client{}
-	req, _ := http.NewRequest(http.MethodPatch, baseURL+"/api/v1/accounts/"+accountID+"/rbac/permission", bytes.NewReader(assignBody))
+	client = &http.Client{}
+	req, _ = http.NewRequest(http.MethodPatch, baseURL+"/api/v1/accounts/"+accountID+"/rbac/permission", bytes.NewReader(assignBody))
 	req.Header.Set("Content-Type", "application/json")
 	resp, _ = client.Do(req)
 	resp.Body.Close()
@@ -391,7 +470,7 @@ func TestAccountRBACHandler_AssignPermission_Idempotent(t *testing.T) {
 	// Assign same permission again
 	req, _ = http.NewRequest(http.MethodPatch, baseURL+"/api/v1/accounts/"+accountID+"/rbac/permission", bytes.NewReader(assignBody))
 	req.Header.Set("Content-Type", "application/json")
-	resp, err := client.Do(req)
+	resp, err = client.Do(req)
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusNoContent, resp.StatusCode)
 	resp.Body.Close()
@@ -435,12 +514,33 @@ func TestAccountRBACHandler_AssignMultiplePermissions(t *testing.T) {
 	}
 	require.NotEmpty(t, accountID)
 
-	// Assign multiple permissions
+	// Create permissions first
 	client := &http.Client{}
+	permissionsToCreate := []struct {
+		name   string
+		action string
+	}{
+		{"users", "create"},
+		{"users", "read"},
+		{"users", "delete"},
+	}
+	for _, p := range permissionsToCreate {
+		createPermPayload := rbac.NewPermissionRequest{
+			Name:   p.name,
+			Action: p.action,
+		}
+		createPermBody, _ := json.Marshal(createPermPayload)
+
+		req, _ := http.NewRequest(http.MethodPost, baseURL+"/api/v1/rbac/permissions", bytes.NewReader(createPermBody))
+		req.Header.Set("Content-Type", "application/json")
+		resp, _ = client.Do(req)
+		resp.Body.Close()
+	}
+
+	// Assign multiple permissions
 	permissions := []string{"users:create", "users:read", "users:delete"}
 	for _, perm := range permissions {
 		assignPayload := rbacapi.AssignPermissionRequest{
-			AccountID:  accountID,
 			Permission: perm,
 		}
 		assignBody, _ := json.Marshal(assignPayload)
@@ -498,15 +598,26 @@ func TestAccountRBACHandler_RemovePermission(t *testing.T) {
 	}
 	require.NotEmpty(t, accountID)
 
-	// Assign permission first
+	// Create permission first
+	createPermPayload := rbac.NewPermissionRequest{
+		Name:   "comments",
+		Action: "moderate",
+	}
+	createPermBody, _ := json.Marshal(createPermPayload)
+
+	client := &http.Client{}
+	req, _ := http.NewRequest(http.MethodPost, baseURL+"/api/v1/rbac/permissions", bytes.NewReader(createPermBody))
+	req.Header.Set("Content-Type", "application/json")
+	resp, _ = client.Do(req)
+	resp.Body.Close()
+
+	// Assign permission to account
 	assignPayload := rbacapi.AssignPermissionRequest{
-		AccountID:  accountID,
 		Permission: "comments:moderate",
 	}
 	assignBody, _ := json.Marshal(assignPayload)
 
-	client := &http.Client{}
-	req, _ := http.NewRequest(http.MethodPatch, baseURL+"/api/v1/accounts/"+accountID+"/rbac/permission", bytes.NewReader(assignBody))
+	req, _ = http.NewRequest(http.MethodPatch, baseURL+"/api/v1/accounts/"+accountID+"/rbac/permission", bytes.NewReader(assignBody))
 	req.Header.Set("Content-Type", "application/json")
 	resp, _ = client.Do(req)
 	resp.Body.Close()
@@ -597,20 +708,42 @@ func TestAccountRBACHandler_RolesAndPermissionsTogether(t *testing.T) {
 
 	client := &http.Client{}
 
-	// Assign roles
-	rolePayload := rbacapi.AssignRoleRequest{
-		AccountID: accountID,
-		Role:      "editor",
+	// Create "editor" role
+	createRolePayload := rbac.NewRoleRequest{
+		Name:        "editor",
+		Description: "editor role",
 	}
-	roleBody, _ := json.Marshal(rolePayload)
-	req, _ := http.NewRequest(http.MethodPatch, baseURL+"/api/v1/accounts/"+accountID+"/rbac/role", bytes.NewReader(roleBody))
+	createRoleBody, _ := json.Marshal(createRolePayload)
+
+	req, _ := http.NewRequest(http.MethodPost, baseURL+"/api/v1/rbac/roles", bytes.NewReader(createRoleBody))
 	req.Header.Set("Content-Type", "application/json")
 	resp, _ = client.Do(req)
 	resp.Body.Close()
 
-	// Assign permissions
+	// Create "special:feature" permission
+	createPermPayload := rbac.NewPermissionRequest{
+		Name:   "special",
+		Action: "feature",
+	}
+	createPermBody, _ := json.Marshal(createPermPayload)
+
+	req, _ = http.NewRequest(http.MethodPost, baseURL+"/api/v1/rbac/permissions", bytes.NewReader(createPermBody))
+	req.Header.Set("Content-Type", "application/json")
+	resp, _ = client.Do(req)
+	resp.Body.Close()
+
+	// Assign role to account
+	rolePayload := rbacapi.AssignRoleRequest{
+		Role: "editor",
+	}
+	roleBody, _ := json.Marshal(rolePayload)
+	req, _ = http.NewRequest(http.MethodPatch, baseURL+"/api/v1/accounts/"+accountID+"/rbac/role", bytes.NewReader(roleBody))
+	req.Header.Set("Content-Type", "application/json")
+	resp, _ = client.Do(req)
+	resp.Body.Close()
+
+	// Assign permission to account
 	permPayload := rbacapi.AssignPermissionRequest{
-		AccountID:  accountID,
 		Permission: "special:feature",
 	}
 	permBody, _ := json.Marshal(permPayload)

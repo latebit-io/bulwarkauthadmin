@@ -2,6 +2,7 @@ package rbac
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"time"
@@ -205,6 +206,13 @@ func (p PermissionServiceDefault) DeletePermission(ctx context.Context, name str
 func (p PermissionServiceDefault) DoesPermissionExist(ctx context.Context, permissionKey string) (bool, error) {
 	_, err := p.permissionRepository.Read(ctx, permissionKey)
 	if err != nil {
+		if err != nil {
+			var notFoundErr PermissionNotFoundError
+			if errors.As(err, &notFoundErr) {
+				return false, nil
+			}
+			return false, err
+		}
 		return false, err
 	}
 	return true, nil

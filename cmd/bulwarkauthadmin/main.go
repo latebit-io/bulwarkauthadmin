@@ -70,16 +70,16 @@ func main() {
 	accountsHandler := accountsapi.NewAccountHandler(accountsManagmentService)
 	accountsapi.AccountRoutesV1(service, accountsHandler)
 
-	accountsRBAC := accountsRbac.NewAccountRBACServiceDefault(accountRepository)
-	accountsRbacHandler := accountsrbacapi.NewAccountRBACHandler(accountsRBAC)
-	accountsrbacapi.AccountRBACRoutesV1(service, *accountsRbacHandler)
-
 	permissionsRepository := rbac.NewMongoDBPermissionsRepository(mongodb)
 	rolesRepository := rbac.NewMongoDBRolesRepository(mongodb)
 	roleService := rbac.NewRoleServiceDefault(rolesRepository)
 	permissionService := rbac.NewPermissionServiceDefault(permissionsRepository)
 	rbacHandler := rbacapi.NewRbacHandler(roleService, permissionService)
 	rbacapi.RbacRoutesV1(service, rbacHandler)
+
+	accountsRBAC := accountsRbac.NewAccountRBACServiceDefault(accountRepository, permissionService, roleService)
+	accountsRbacHandler := accountsrbacapi.NewAccountRBACHandler(accountsRBAC)
+	accountsrbacapi.AccountRBACRoutesV1(service, accountsRbacHandler)
 
 	healthHandler := health.NewHealthHandler()
 	health.HealthRoutes(service, healthHandler)
