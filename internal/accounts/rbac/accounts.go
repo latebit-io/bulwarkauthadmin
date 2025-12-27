@@ -5,6 +5,7 @@ import (
 	"slices"
 
 	"github.com/latebit-io/bulwarkauthadmin/internal/accounts"
+	"github.com/latebit-io/bulwarkauthadmin/internal/rbac"
 )
 
 type AccountRBACService interface {
@@ -15,11 +16,22 @@ type AccountRBACService interface {
 }
 
 type AccountRBACServiceDefault struct {
-	accountRepo accounts.AccountRepository
+	accountRepo       accounts.AccountRepository
+	permissionService rbac.PermissionService
+	rolesService      rbac.RoleService
 }
 
 // AssignPermission implements AccountRBACService.
 func (a *AccountRBACServiceDefault) AssignPermission(ctx context.Context, accountID string, permission string) error {
+	exists, err := a.permissionService.DoesPermissionExist(ctx, permission)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		return rbac.PermissionNotFoundError{
+			Value: permission,
+		}
+	}
 	account, err := a.accountRepo.ReadById(ctx, accountID)
 	if err != nil {
 		return err
@@ -36,6 +48,10 @@ func (a *AccountRBACServiceDefault) AssignPermission(ctx context.Context, accoun
 
 // AssignRole implements AccountRBACService.
 func (a *AccountRBACServiceDefault) AssignRole(ctx context.Context, accountID string, role string) error {
+	_, err := a.rolesService.GetRole(ctx, role)
+	if err != nil {
+		return err
+	}
 	account, err := a.accountRepo.ReadById(ctx, accountID)
 	if err != nil {
 		return err
@@ -62,7 +78,6 @@ func (a *AccountRBACServiceDefault) RemovePermission(ctx context.Context, accoun
 	if !slices.Contains(account.Permissions, permission) {
 		return nil
 	}
-
 	account.Permissions = slices.DeleteFunc(account.Permissions, func(p string) bool { return p == permission })
 	return a.accountRepo.Update(ctx, *account)
 }
@@ -84,8 +99,11 @@ func (a *AccountRBACServiceDefault) RemoveRole(ctx context.Context, accountID st
 	return a.accountRepo.Update(ctx, *account)
 }
 
-func NewAccountRBACServiceDefault(accountRepo accounts.AccountRepository) AccountRBACService {
+func NewAccountRBACServiceDefault(accountRepo accounts.AccountRepository, permissionService rbac.PermissionService,
+	rolesService rbac.RoleService) AccountRBACService {
 	return &AccountRBACServiceDefault{
-		accountRepo: accountRepo,
+		accountRepo:       accountRepo,
+		permissionService: permissionService,
+		rolesService:      rolesService,
 	}
 }

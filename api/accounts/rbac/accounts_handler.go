@@ -6,18 +6,15 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/latebit-io/bulwarkauthadmin/api/problem"
-	"github.com/latebit-io/bulwarkauthadmin/internal/accounts/rbac"
+	accountsRbac "github.com/latebit-io/bulwarkauthadmin/internal/accounts/rbac"
+	"github.com/latebit-io/bulwarkauthadmin/internal/rbac"
 )
 
 type AssignRoleRequest struct {
-	AccountID string `json:"accountId"`
-	Role      string `json:"role"`
+	Role string `json:"role"`
 }
 
 func (r AssignRoleRequest) Validate() error {
-	if r.AccountID == "" {
-		return errors.New("account id is required")
-	}
 	if r.Role == "" {
 		return errors.New("role is required")
 	}
@@ -25,14 +22,10 @@ func (r AssignRoleRequest) Validate() error {
 }
 
 type AssignPermissionRequest struct {
-	AccountID  string `json:"accountId"`
 	Permission string `json:"permission"`
 }
 
 func (r AssignPermissionRequest) Validate() error {
-	if r.AccountID == "" {
-		return errors.New("account id is required")
-	}
 	if r.Permission == "" {
 		return errors.New("permission is required")
 	}
@@ -40,16 +33,21 @@ func (r AssignPermissionRequest) Validate() error {
 }
 
 type AccountRBACHandler struct {
-	accountRbacService rbac.AccountRBACService
+	accountRbacService accountsRbac.AccountRBACService
 }
 
-func NewAccountRBACHandler(accountRbacService rbac.AccountRBACService) *AccountRBACHandler {
+func NewAccountRBACHandler(accountRbacService accountsRbac.AccountRBACService) *AccountRBACHandler {
 	return &AccountRBACHandler{
 		accountRbacService: accountRbacService,
 	}
 }
 
 func (ah *AccountRBACHandler) AssignRole(c echo.Context) error {
+	accountID := c.Param("id")
+	if accountID == "" {
+		httpError := problem.NewBadRequest(errors.New("account is required"))
+		return echo.NewHTTPError(httpError.Status, httpError)
+	}
 	assignRoleRequest := new(AssignRoleRequest)
 	err := c.Bind(assignRoleRequest)
 	if err != nil {
@@ -63,8 +61,13 @@ func (ah *AccountRBACHandler) AssignRole(c echo.Context) error {
 		return echo.NewHTTPError(httpError.Status, httpError)
 	}
 	ctx := c.Request().Context()
-	err = ah.accountRbacService.AssignRole(ctx, assignRoleRequest.AccountID, assignRoleRequest.Role)
+	err = ah.accountRbacService.AssignRole(ctx, accountID, assignRoleRequest.Role)
 	if err != nil {
+		var roleNotFound rbac.RoleNotFoundError
+		if errors.As(err, &roleNotFound) {
+			httpError := problem.NewBadRequest(err)
+			return echo.NewHTTPError(httpError.Status, httpError)
+		}
 		httpError := problem.NewServerError(err)
 		return echo.NewHTTPError(httpError.Status, httpError)
 	}
@@ -96,6 +99,12 @@ func (ah *AccountRBACHandler) RemoveRole(c echo.Context) error {
 }
 
 func (ah *AccountRBACHandler) AssignPermission(c echo.Context) error {
+	accountID := c.Param("id")
+	if accountID == "" {
+		httpError := problem.NewBadRequest(errors.New("account is required"))
+		return echo.NewHTTPError(httpError.Status, httpError)
+	}
+
 	assignPermissionRequest := new(AssignPermissionRequest)
 	err := c.Bind(assignPermissionRequest)
 	if err != nil {
@@ -108,8 +117,13 @@ func (ah *AccountRBACHandler) AssignPermission(c echo.Context) error {
 		return echo.NewHTTPError(httpError.Status, httpError)
 	}
 	ctx := c.Request().Context()
-	err = ah.accountRbacService.AssignPermission(ctx, assignPermissionRequest.AccountID, assignPermissionRequest.Permission)
+	err = ah.accountRbacService.AssignPermission(ctx, accountID, assignPermissionRequest.Permission)
 	if err != nil {
+		var permissionNotFound rbac.PermissionNotFoundError
+		if errors.As(err, &permissionNotFound) {
+			httpError := problem.NewBadRequest(err)
+			return echo.NewHTTPError(httpError.Status, httpError)
+		}
 		httpError := problem.NewServerError(err)
 		return echo.NewHTTPError(httpError.Status, httpError)
 	}

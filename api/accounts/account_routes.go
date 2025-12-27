@@ -2,7 +2,7 @@ package accounts
 
 import "github.com/labstack/echo/v4"
 
-func AccountRoutesV1(e *echo.Echo, handler AccountHandler) {
+func AccountRoutesV1(e *echo.Echo, handler *AccountHandler) {
 	e.POST("/api/v1/accounts", handler.RegisterAccount)
 	e.GET("/api/v1/accounts/:id", handler.GetAccount)
 	e.GET("/api/v1/accounts", handler.ListAccounts)
