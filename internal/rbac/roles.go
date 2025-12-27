@@ -42,7 +42,8 @@ func (r *Role) RemovePermission(permissionName string) {
 }
 
 func (r *Role) AddPermission(permissionName string) {
-	if slices.Contains(r.Permissions, strings.TrimSpace(permissionName)) {
+	permissionName = strings.TrimSpace(permissionName)
+	if slices.Contains(r.Permissions, permissionName) {
 		return
 	}
 	r.Permissions = append(r.Permissions, permissionName)
