@@ -7,13 +7,15 @@ import (
 )
 
 type AppConfig struct {
-	BulwarkAuthUrl string
-	Port           int
-	CORSEnabled    bool
-	AllowedOrigins []string
-	Domain         string
-	DbConnection   string
-	DbNameSeed     string
+	BulwarkAuthUrl       string
+	Port                 int
+	CORSEnabled          bool
+	AllowedOrigins       []string
+	Domain               string
+	DbConnection         string
+	DbNameSeed           string
+	AdminAccount         string
+	AdminAccountPassword string
 }
 
 func NewAppConfig() (*AppConfig, error) {
@@ -23,6 +25,10 @@ func NewAppConfig() (*AppConfig, error) {
 	config.Port = getEnvAsInt("PORT", 8080)
 	config.DbConnection = getEnv("DB_CONNECTION", "mongodb://localhost:27017/?connect=direct")
 	config.AllowedOrigins = getEnvAsStringSlice("ALLOWED_WEB_ORIGINS", []string{"http://localhost:5173"})
+	// Security alert: this should be removed after first start up or use secrets to inject password
+	// you can set an existing bulwark account, no password needed, or if you want one created provide a password
+	config.AdminAccount = getEnv("ADMIN_ACCOUNT", "")
+	config.AdminAccountPassword = getEnv("ADMIN_ACCOUNT_PASSWORD", "")
 
 	return config, nil
 }

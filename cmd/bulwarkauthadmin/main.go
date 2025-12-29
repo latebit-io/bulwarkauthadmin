@@ -12,11 +12,13 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	bulwark "github.com/latebit-io/bulwark-auth-guard"
 	accountsapi "github.com/latebit-io/bulwarkauthadmin/api/accounts"
 	accountsrbacapi "github.com/latebit-io/bulwarkauthadmin/api/accounts/rbac"
 	"github.com/latebit-io/bulwarkauthadmin/api/health"
 	rbacapi "github.com/latebit-io/bulwarkauthadmin/api/rbac"
 	"github.com/latebit-io/bulwarkauthadmin/internal/accounts"
+	adminAccount "github.com/latebit-io/bulwarkauthadmin/internal/accounts/admin"
 	accountsRbac "github.com/latebit-io/bulwarkauthadmin/internal/accounts/rbac"
 	"github.com/latebit-io/bulwarkauthadmin/internal/rbac"
 	"github.com/latebit-io/bulwarkauthadmin/internal/version"
@@ -80,6 +82,30 @@ func main() {
 	accountsRBAC := accountsRbac.NewAccountRBACServiceDefault(accountRepository, permissionService, roleService)
 	accountsRbacHandler := accountsrbacapi.NewAccountRBACHandler(accountsRBAC)
 	accountsrbacapi.AccountRBACRoutesV1(service, accountsRbacHandler)
+
+	httpClient := &http.Client{}
+	bulwarkGuard := bulwark.NewGuard(config.BulwarkAuthUrl, httpClient)
+	adminAccountService := adminAccount.NewAdminAccountsServiceDefault(
+		accountRepository,
+		rolesRepository,
+		permissionsRepository,
+		accountsRBAC,
+		bulwarkGuard,
+	)
+
+	err = adminAccountService.CreateInternalRoles(context.Background())
+	if err != nil {
+		logger.Error("failed to create internal roles", "error", err)
+		panic(err)
+	}
+	defaultAdminAccount := config.AdminAccount
+	defaultAdminPassword := config.AdminAccountPassword
+	if defaultAdminAccount != "" {
+		err = adminAccountService.RegisterAccount(context.Background(), defaultAdminAccount, defaultAdminPassword)
+		if err != nil {
+			logger.Error(err.Error())
+		}
+	}
 
 	healthHandler := health.NewHealthHandler()
 	health.HealthRoutes(service, healthHandler)
