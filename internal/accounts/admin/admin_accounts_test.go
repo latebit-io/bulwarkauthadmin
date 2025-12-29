@@ -156,7 +156,7 @@ func TestAdminAccountsService_RegisterAccount(t *testing.T) {
 		// 	password: "SecurePassword123!",
 		// 	setupFunc: func(ctx context.Context, accountRepo accounts.AccountRepository, rolesRepo rbac.RolesRepository, permRepo rbac.PermissionsRepository, guard *bulwark.Guard) error {
 		// 		// Create internal roles first
-		// 		adminPermission := rbac.NewPermission(bulwwarkAdminPermission, bulwarkAdminAction)
+		// 		adminPermission := rbac.NewPermission(bulwarkAdminPermission, bulwarkAdminAction)
 		// 		if err := permRepo.Create(ctx, adminPermission); err != nil {
 		// 			return err
 		// 		}
@@ -202,7 +202,7 @@ func TestAdminAccountsService_RegisterAccount(t *testing.T) {
 		// 		}
 
 		// 		// Create internal roles
-		// 		adminPermission := rbac.NewPermission(bulwwarkAdminPermission, bulwarkAdminAction)
+		// 		adminPermission := rbac.NewPermission(bulwarkAdminPermission, bulwarkAdminAction)
 		// 		if err := permRepo.Create(ctx, adminPermission); err != nil {
 		// 			return err
 		// 		}
@@ -271,7 +271,7 @@ func TestAdminAccountsService_RegisterAccount(t *testing.T) {
 // 	accountsRepo, rolesRepo, permissionsRepo, rbacAccountService, guard := setupTestServices(t, db)
 
 // 	// Create internal roles
-// 	adminPermission := rbac.NewPermission(bulwwarkAdminPermission, bulwarkAdminAction)
+// 	adminPermission := rbac.NewPermission(bulwarkAdminPermission, bulwarkAdminAction)
 // 	err := permissionsRepo.Create(context.TODO(), adminPermission)
 // 	assert.NoError(t, err)
 
@@ -310,7 +310,7 @@ func TestAdminAccountsService_RegisterAccount(t *testing.T) {
 // 	accountsRepo, rolesRepo, permissionsRepo, rbacAccountService, guard := setupTestServices(t, db)
 
 // 	// Create internal roles
-// 	adminPermission := rbac.NewPermission(bulwwarkAdminPermission, bulwarkAdminAction)
+// 	adminPermission := rbac.NewPermission(bulwarkAdminPermission, bulwarkAdminAction)
 // 	err := permissionsRepo.Create(context.TODO(), adminPermission)
 // 	assert.NoError(t, err)
 
@@ -347,7 +347,7 @@ func TestAdminAccountsService_RegisterAccount(t *testing.T) {
 // 	assert.NoError(t, err)
 
 // 	// Verify permission exists
-// 	permission, err := permissionsRepo.Read(context.TODO(), bulwwarkAdminPermission+":"+bulwarkAdminAction)
+// 	permission, err := permissionsRepo.Read(context.TODO(), bulwarkAdminPermission+":"+bulwarkAdminAction)
 // 	assert.NoError(t, err)
 // 	assert.NotNil(t, permission)
 
