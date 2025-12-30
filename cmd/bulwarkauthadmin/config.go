@@ -7,13 +7,15 @@ import (
 )
 
 type AppConfig struct {
-	BulwarkAuthUrl string
-	Port           int
-	CORSEnabled    bool
-	AllowedOrigins []string
-	Domain         string
-	DbConnection   string
-	DbNameSeed     string
+	BulwarkAuthUrl       string
+	Port                 int
+	CORSEnabled          bool
+	AllowedOrigins       []string
+	Domain               string
+	DbConnection         string
+	DbNameSeed           string
+	AdminAccount         string
+	AdminAccountPassword string
 }
 
 func NewAppConfig() (*AppConfig, error) {
@@ -23,6 +25,13 @@ func NewAppConfig() (*AppConfig, error) {
 	config.Port = getEnvAsInt("PORT", 8080)
 	config.DbConnection = getEnv("DB_CONNECTION", "mongodb://localhost:27017/?connect=direct")
 	config.AllowedOrigins = getEnvAsStringSlice("ALLOWED_WEB_ORIGINS", []string{"http://localhost:5173"})
+	// SECURITY WARNING:
+	// These environment variables are intended only for initial provisioning.
+	// After the first successful startup (once the admin account is created or linked),
+	// immediately remove ADMIN_ACCOUNT and ADMIN_ACCOUNT_PASSWORD from the environment
+	// and from any configuration files or deployment manifests.
+	config.AdminAccount = getEnv("ADMIN_ACCOUNT", "")
+	config.AdminAccountPassword = getEnv("ADMIN_ACCOUNT_PASSWORD", "")
 
 	return config, nil
 }
