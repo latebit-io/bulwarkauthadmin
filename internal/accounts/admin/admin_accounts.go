@@ -36,14 +36,20 @@ func (a *AdminAccountsServiceDefault) CreateInternalRoles(ctx context.Context) e
 	adminPermission := rbac.NewPermission(bulwarkAdminPermission, bulwarkAdminAction)
 	err := a.permissionsRepository.Create(ctx, adminPermission)
 	if err != nil {
-		return err
+		var duplicatePermission rbac.PermissionDuplicateError
+		if !errors.As(err, &duplicatePermission) {
+			return err
+		}
 	}
 
 	adminRole := rbac.NewRole(bulwarkAdminRole, bulwarkAdminRoleDescription)
 	adminRole.AddPermission(adminPermission.Key)
 	err = a.rolesRepository.Create(ctx, adminRole)
 	if err != nil {
-		return err
+		var duplicateRole rbac.RoleDuplicateError
+		if !errors.As(err, &duplicateRole) {
+			return err
+		}
 	}
 	return nil
 }
