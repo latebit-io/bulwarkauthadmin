@@ -130,7 +130,12 @@ func corsSetting(service *echo.Echo, config *AppConfig, logger *slog.Logger) {
 
 	service.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: config.AllowedOrigins,
-		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept},
+		AllowHeaders: []string{
+			echo.HeaderOrigin,
+			echo.HeaderContentType,
+			echo.HeaderAccept,
+			echo.HeaderAuthorization,
+		},
 	}))
 	logger.Info("cors enabled")
 	logger.Info("cors allowed origins", "origins", config.AllowedOrigins)
