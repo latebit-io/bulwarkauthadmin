@@ -16,6 +16,7 @@ import (
 	accountsapi "github.com/latebit-io/bulwarkauthadmin/api/accounts"
 	accountsrbacapi "github.com/latebit-io/bulwarkauthadmin/api/accounts/rbac"
 	"github.com/latebit-io/bulwarkauthadmin/api/health"
+	bulwarkauthmiddleware "github.com/latebit-io/bulwarkauthadmin/api/middleware"
 	rbacapi "github.com/latebit-io/bulwarkauthadmin/api/rbac"
 	"github.com/latebit-io/bulwarkauthadmin/internal/accounts"
 	adminAccount "github.com/latebit-io/bulwarkauthadmin/internal/accounts/admin"
@@ -65,7 +66,9 @@ func main() {
 			panic(err)
 		}
 	}()
-
+	httpClient := &http.Client{}
+	bulwarkGuard := bulwark.NewGuard(config.BulwarkAuthUrl, httpClient)
+	jwt := bulwarkauthmiddleware.NewJWTMiddleware(bulwarkGuard)
 	mongodb := client.Database("bulwarkauth" + config.DbNameSeed)
 	accountRepository := accounts.NewMongoDBAccountRepository(mongodb)
 	accountsManagmentService := accounts.NewAccountManagementServiceDefault(accountRepository)
@@ -83,8 +86,6 @@ func main() {
 	accountsRbacHandler := accountsrbacapi.NewAccountRBACHandler(accountsRBAC)
 	accountsrbacapi.AccountRBACRoutesV1(service, accountsRbacHandler)
 
-	httpClient := &http.Client{}
-	bulwarkGuard := bulwark.NewGuard(config.BulwarkAuthUrl, httpClient)
 	adminAccountService := adminAccount.NewAdminAccountsServiceDefault(
 		accountRepository,
 		rolesRepository,
@@ -111,6 +112,7 @@ func main() {
 	healthHandler := health.NewHealthHandler()
 	health.HealthRoutes(service, healthHandler)
 	corsSetting(service, config, logger)
+	service.Use(jwt.Jwt)
 
 	if err := service.Start(fmt.Sprintf(":%d", config.Port)); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		logger.Error(err.Error())
