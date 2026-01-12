@@ -9,10 +9,10 @@ import (
 )
 
 type AccountRBACService interface {
-	AssignRole(ctx context.Context, accountID, role string) error
-	RemoveRole(ctx context.Context, accountID, role string) error
-	AssignPermission(ctx context.Context, accountID, permission string) error
-	RemovePermission(ctx context.Context, accountID, permission string) error
+	AssignRole(ctx context.Context, tenantID, accountID, role string) error
+	RemoveRole(ctx context.Context, tenantID, accountID, role string) error
+	AssignPermission(ctx context.Context, tenantID, accountID, permission string) error
+	RemovePermission(ctx context.Context, tenantID, accountID, permission string) error
 }
 
 type AccountRBACServiceDefault struct {
@@ -22,8 +22,8 @@ type AccountRBACServiceDefault struct {
 }
 
 // AssignPermission implements AccountRBACService.
-func (a *AccountRBACServiceDefault) AssignPermission(ctx context.Context, accountID string, permission string) error {
-	exists, err := a.permissionService.DoesPermissionExist(ctx, permission)
+func (a *AccountRBACServiceDefault) AssignPermission(ctx context.Context, tenantID, accountID string, permission string) error {
+	exists, err := a.permissionService.DoesPermissionExist(ctx, tenantID, permission)
 	if err != nil {
 		return err
 	}
@@ -32,7 +32,7 @@ func (a *AccountRBACServiceDefault) AssignPermission(ctx context.Context, accoun
 			Value: permission,
 		}
 	}
-	account, err := a.accountRepo.ReadById(ctx, accountID)
+	account, err := a.accountRepo.ReadById(ctx, tenantID, accountID)
 	if err != nil {
 		return err
 	}
@@ -43,16 +43,16 @@ func (a *AccountRBACServiceDefault) AssignPermission(ctx context.Context, accoun
 	}
 
 	account.Permissions = append(account.Permissions, permission)
-	return a.accountRepo.Update(ctx, *account)
+	return a.accountRepo.Update(ctx, tenantID, *account)
 }
 
 // AssignRole implements AccountRBACService.
-func (a *AccountRBACServiceDefault) AssignRole(ctx context.Context, accountID string, role string) error {
-	_, err := a.rolesService.GetRole(ctx, role)
+func (a *AccountRBACServiceDefault) AssignRole(ctx context.Context, tenantID, accountID string, role string) error {
+	_, err := a.rolesService.GetRole(ctx, tenantID, role)
 	if err != nil {
 		return err
 	}
-	account, err := a.accountRepo.ReadById(ctx, accountID)
+	account, err := a.accountRepo.ReadById(ctx, tenantID, accountID)
 	if err != nil {
 		return err
 	}
@@ -63,12 +63,12 @@ func (a *AccountRBACServiceDefault) AssignRole(ctx context.Context, accountID st
 	}
 
 	account.Roles = append(account.Roles, role)
-	return a.accountRepo.Update(ctx, *account)
+	return a.accountRepo.Update(ctx, tenantID, *account)
 }
 
 // RemovePermission implements AccountRBACService.
-func (a *AccountRBACServiceDefault) RemovePermission(ctx context.Context, accountID string, permission string) error {
-	account, err := a.accountRepo.ReadById(ctx, accountID)
+func (a *AccountRBACServiceDefault) RemovePermission(ctx context.Context, tenantID, accountID string, permission string) error {
+	account, err := a.accountRepo.ReadById(ctx, tenantID, accountID)
 	if err != nil {
 		return err
 	}
@@ -79,12 +79,12 @@ func (a *AccountRBACServiceDefault) RemovePermission(ctx context.Context, accoun
 		return nil
 	}
 	account.Permissions = slices.DeleteFunc(account.Permissions, func(p string) bool { return p == permission })
-	return a.accountRepo.Update(ctx, *account)
+	return a.accountRepo.Update(ctx, tenantID, *account)
 }
 
 // RemoveRole implements AccountRBACService.
-func (a *AccountRBACServiceDefault) RemoveRole(ctx context.Context, accountID string, role string) error {
-	account, err := a.accountRepo.ReadById(ctx, accountID)
+func (a *AccountRBACServiceDefault) RemoveRole(ctx context.Context, tenantID, accountID string, role string) error {
+	account, err := a.accountRepo.ReadById(ctx, tenantID, accountID)
 	if err != nil {
 		return err
 	}
@@ -96,7 +96,7 @@ func (a *AccountRBACServiceDefault) RemoveRole(ctx context.Context, accountID st
 	}
 
 	account.Roles = slices.DeleteFunc(account.Roles, func(r string) bool { return r == role })
-	return a.accountRepo.Update(ctx, *account)
+	return a.accountRepo.Update(ctx, tenantID, *account)
 }
 
 func NewAccountRBACServiceDefault(accountRepo accounts.AccountRepository, permissionService rbac.PermissionService,

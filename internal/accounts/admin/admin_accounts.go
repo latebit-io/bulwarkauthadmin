@@ -18,7 +18,7 @@ const (
 )
 
 type AdminAccountsService interface {
-	RegisterAccount(ctx context.Context, email string, password string) error
+	RegisterAccount(ctx context.Context, tenantID, email string, password string) error
 	CreateInternalRoles(ctx context.Context) error
 }
 

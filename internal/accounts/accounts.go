@@ -10,6 +10,7 @@ import (
 
 type Account struct {
 	ID                string           `json:"id" bson:"id"`
+	TenantID          string           `json:"tenantId" bson:"tenantId"`
 	Email             string           `json:"email" bson:"email"`
 	IsVerified        bool             `json:"isVerified" bson:"isVerified"`
 	VerificationToken string           `json:"verificationToken" bson:"verificationToken"`
@@ -35,6 +36,7 @@ type SocialProvider struct {
 
 type AuthTokenModel struct {
 	ID           string    `json:"id" bson:"id"`
+	TenantID     string    `json:"tenantId" bson:"tenantId"`
 	UserID       string    `json:"userId" bson:"userId"`
 	DeviceID     string    `json:"deviceId" bson:"deviceId"`
 	AccessToken  string    `json:"accessToken" bson:"accessToken"`
@@ -44,11 +46,12 @@ type AuthTokenModel struct {
 }
 
 type MagicCodeModel struct {
-	ID      string    `json:"id" bson:"_id,omitempty"`
-	UserID  string    `json:"userId" bson:"userId"`
-	Code    string    `json:"code" bson:"code"`
-	Expires time.Time `json:"expires" bson:"expires"`
-	Created time.Time `json:"created" bson:"created"`
+	ID       string    `json:"id" bson:"_id,omitempty"`
+	TenantID string    `json:"tenantId" bson:"tenantId"`
+	UserID   string    `json:"userId" bson:"userId"`
+	Code     string    `json:"code" bson:"code"`
+	Expires  time.Time `json:"expires" bson:"expires"`
+	Created  time.Time `json:"created" bson:"created"`
 }
 
 type AccountOptions struct {
@@ -61,32 +64,32 @@ type AccountFilter struct {
 
 type AccountManagementService interface {
 	// List accounts with filter
-	ListAccounts(ctx context.Context, filter AccountFilter) ([]Account, error)
+	ListAccounts(ctx context.Context, tenantID string, filter AccountFilter) ([]Account, error)
 	// Get account details by ID
-	GetAccountDetails(ctx context.Context, id string) (*AccountDetails, error)
+	GetAccountDetails(ctx context.Context, tenantID string, id string) (*AccountDetails, error)
 	// Register a new account with email and options
-	RegisterAccount(ctx context.Context, email string, options AccountOptions) error
+	RegisterAccount(ctx context.Context, tenantID string, email string, options AccountOptions) error
 	// Unlink SocialProvider
-	UnlinkSocialProvider(ctx context.Context, accountID, provider string) error
+	UnlinkSocialProvider(ctx context.Context, tenantID string, accountID, provider string) error
 	// Change account email
-	ChangeAccountEmail(ctx context.Context, accountID, newEmail string, options AccountOptions) error
+	ChangeAccountEmail(ctx context.Context, tenantID string, accountID, newEmail string, options AccountOptions) error
 	// Disable account temporarily
-	DisableAccount(ctx context.Context, accountId string) error
+	DisableAccount(ctx context.Context, tenantID string, accountId string) error
 	// Enable account from being disabled
-	EnableAccount(ctx context.Context, accountId string) error
+	EnableAccount(ctx context.Context, tenantID string, accountId string) error
 	// Deactivate soft deletes an account
-	DeactivateAccount(ctx context.Context, accountId string) error
+	DeactivateAccount(ctx context.Context, tenantID string, accountId string) error
 	// Purge account hard deletes an account
-	PurgeAccount(ctx context.Context, accountId string) error
+	PurgeAccount(ctx context.Context, tenantID string, accountId string) error
 }
 
 type AccountRepository interface {
 	Create(ctx context.Context, accountModel Account) error
-	ReadByEmail(ctx context.Context, email string) (*Account, error)
-	ReadById(ctx context.Context, accountId string) (*Account, error)
-	ReadAll(ctx context.Context, options shared.PageOptions) ([]Account, error)
-	Update(ctx context.Context, account Account) error
-	Delete(ctx context.Context, accountId string) error
+	ReadByEmail(ctx context.Context, tenantID string, email string) (*Account, error)
+	ReadById(ctx context.Context, tenantID string, accountId string) (*Account, error)
+	ReadAll(ctx context.Context, tenantID string, options shared.PageOptions) ([]Account, error)
+	Update(ctx context.Context, tenantID string, account Account) error
+	Delete(ctx context.Context, tenantID string, accountId string) error
 }
 
 type AccountManagementServiceDefault struct {
@@ -94,8 +97,8 @@ type AccountManagementServiceDefault struct {
 }
 
 // UnlinkSocialProvider implements AccountManagementService.
-func (a *AccountManagementServiceDefault) UnlinkSocialProvider(ctx context.Context, accountID, provider string) error {
-	account, err := a.accountRepository.ReadById(ctx, accountID)
+func (a *AccountManagementServiceDefault) UnlinkSocialProvider(ctx context.Context, tenantID, accountID, provider string) error {
+	account, err := a.accountRepository.ReadById(ctx, tenantID, accountID)
 	if err != nil {
 		return err
 	}
@@ -104,7 +107,7 @@ func (a *AccountManagementServiceDefault) UnlinkSocialProvider(ctx context.Conte
 		if social.Name == provider {
 			socials = append(socials[:i], socials[i+1:]...)
 			account.SocialProviders = socials
-			return a.accountRepository.Update(ctx, *account)
+			return a.accountRepository.Update(ctx, tenantID, *account)
 		}
 	}
 
@@ -114,8 +117,8 @@ func (a *AccountManagementServiceDefault) UnlinkSocialProvider(ctx context.Conte
 }
 
 // ChangeAccountEmail implements AccountManagementService.
-func (a *AccountManagementServiceDefault) ChangeAccountEmail(ctx context.Context, accountID, newEmail string, options AccountOptions) error {
-	_, err := a.accountRepository.ReadByEmail(ctx, newEmail)
+func (a *AccountManagementServiceDefault) ChangeAccountEmail(ctx context.Context, tenantID, accountID, newEmail string, options AccountOptions) error {
+	_, err := a.accountRepository.ReadByEmail(ctx, tenantID, newEmail)
 	if err != nil {
 		var accountNotFound AccountNotFoundError
 		notFound := errors.As(err, &accountNotFound)
@@ -126,14 +129,14 @@ func (a *AccountManagementServiceDefault) ChangeAccountEmail(ctx context.Context
 		}
 	}
 
-	account, err := a.accountRepository.ReadById(ctx, accountID)
+	account, err := a.accountRepository.ReadById(ctx, tenantID, accountID)
 	if err != nil {
 		return err
 	}
 	account.IsVerified = options.IsVerified
 	account.Email = newEmail
 
-	err = a.accountRepository.Update(ctx, *account)
+	err = a.accountRepository.Update(ctx, tenantID, *account)
 	if err != nil {
 		return err
 	}
@@ -142,13 +145,13 @@ func (a *AccountManagementServiceDefault) ChangeAccountEmail(ctx context.Context
 }
 
 // DeactivateAccount implements AccountManagementService.
-func (a *AccountManagementServiceDefault) DeactivateAccount(ctx context.Context, accountId string) error {
-	account, err := a.accountRepository.ReadById(ctx, accountId)
+func (a *AccountManagementServiceDefault) DeactivateAccount(ctx context.Context, tenantID, accountId string) error {
+	account, err := a.accountRepository.ReadById(ctx, tenantID, accountId)
 	if err != nil {
 		return err
 	}
 	account.IsDeleted = true
-	err = a.accountRepository.Update(ctx, *account)
+	err = a.accountRepository.Update(ctx, tenantID, *account)
 
 	if err != nil {
 		return err
@@ -158,13 +161,13 @@ func (a *AccountManagementServiceDefault) DeactivateAccount(ctx context.Context,
 }
 
 // DisableAccount implements AccountManagementService.
-func (a *AccountManagementServiceDefault) DisableAccount(ctx context.Context, accountId string) error {
-	account, err := a.accountRepository.ReadById(ctx, accountId)
+func (a *AccountManagementServiceDefault) DisableAccount(ctx context.Context, tenantID, accountId string) error {
+	account, err := a.accountRepository.ReadById(ctx, tenantID, accountId)
 	if err != nil {
 		return err
 	}
 	account.IsEnabled = false
-	err = a.accountRepository.Update(ctx, *account)
+	err = a.accountRepository.Update(ctx, tenantID, *account)
 
 	if err != nil {
 		return err
@@ -174,13 +177,13 @@ func (a *AccountManagementServiceDefault) DisableAccount(ctx context.Context, ac
 }
 
 // EnableAccount implements AccountManagementService.
-func (a *AccountManagementServiceDefault) EnableAccount(ctx context.Context, accountId string) error {
-	account, err := a.accountRepository.ReadById(ctx, accountId)
+func (a *AccountManagementServiceDefault) EnableAccount(ctx context.Context, tenantID, accountId string) error {
+	account, err := a.accountRepository.ReadById(ctx, tenantID, accountId)
 	if err != nil {
 		return err
 	}
 	account.IsEnabled = true
-	err = a.accountRepository.Update(ctx, *account)
+	err = a.accountRepository.Update(ctx, tenantID, *account)
 
 	if err != nil {
 		return err
@@ -190,23 +193,22 @@ func (a *AccountManagementServiceDefault) EnableAccount(ctx context.Context, acc
 }
 
 // GetAccountDetails implements AccountManagementService.
-func (a *AccountManagementServiceDefault) GetAccountDetails(ctx context.Context, id string) (*AccountDetails, error) {
-	account, err := a.accountRepository.ReadById(ctx, id)
+func (a *AccountManagementServiceDefault) GetAccountDetails(ctx context.Context, tenantID, id string) (*AccountDetails, error) {
+	account, err := a.accountRepository.ReadById(ctx, tenantID, id)
 	if err != nil {
 		return nil, err
 	}
 
 	return &AccountDetails{
-		Account: *account,
-
+		Account:    *account,
 		MagicCodes: nil,
 	}, nil
 
 }
 
 // ListAccounts implements AccountManagementService.
-func (a *AccountManagementServiceDefault) ListAccounts(ctx context.Context, filter AccountFilter) ([]Account, error) {
-	accounts, err := a.accountRepository.ReadAll(ctx, filter.PageOptions)
+func (a *AccountManagementServiceDefault) ListAccounts(ctx context.Context, tenantID string, filter AccountFilter) ([]Account, error) {
+	accounts, err := a.accountRepository.ReadAll(ctx, tenantID, filter.PageOptions)
 	if err != nil {
 		return nil, err
 	}
@@ -215,8 +217,8 @@ func (a *AccountManagementServiceDefault) ListAccounts(ctx context.Context, filt
 }
 
 // PurgeAccount implements AccountManagementService.
-func (a *AccountManagementServiceDefault) PurgeAccount(ctx context.Context, accountId string) error {
-	err := a.accountRepository.Delete(ctx, accountId)
+func (a *AccountManagementServiceDefault) PurgeAccount(ctx context.Context, tenantID, accountId string) error {
+	err := a.accountRepository.Delete(ctx, tenantID, accountId)
 	if err != nil {
 		return err
 	}
@@ -225,8 +227,9 @@ func (a *AccountManagementServiceDefault) PurgeAccount(ctx context.Context, acco
 }
 
 // RegisterAccount implements AccountManagementService.
-func (a *AccountManagementServiceDefault) RegisterAccount(ctx context.Context, email string, options AccountOptions) error {
+func (a *AccountManagementServiceDefault) RegisterAccount(ctx context.Context, tenantID, email string, options AccountOptions) error {
 	newAccount := Account{
+		TenantID:   tenantID,
 		Email:      email,
 		IsVerified: true,
 		IsEnabled:  true,
