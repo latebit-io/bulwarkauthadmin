@@ -162,9 +162,9 @@ func (m *MongoDBAccountRepository) ReadByEmail(ctx context.Context, tenantID, em
 }
 
 // Update implements AccountRepository.
-func (m *MongoDBAccountRepository) Update(ctx context.Context, account Account) error {
+func (m *MongoDBAccountRepository) Update(ctx context.Context, tenantID string, account Account) error {
 	collection := m.db.Collection(accountCollection)
-	result, err := collection.UpdateOne(ctx, bson.D{{Key: "tenantId", Value: account.TenantID}, {Key: "id", Value: account.ID}}, bson.D{{Key: "$set",
+	result, err := collection.UpdateOne(ctx, bson.D{{Key: "tenantId", Value: tenantID}, {Key: "id", Value: account.ID}}, bson.D{{Key: "$set",
 		Value: bson.D{{Key: "email", Value: account.Email}, {Key: "isDeleted", Value: account.IsDeleted},
 			{Key: "isEnabled", Value: account.IsEnabled}, {Key: "socialProviders", Value: account.SocialProviders}, {Key: "roles", Value: account.Roles},
 			{Key: "permissions", Value: account.Permissions}, {Key: "modified", Value: time.Now()}}}})
