@@ -18,10 +18,12 @@ import (
 	"github.com/latebit-io/bulwarkauthadmin/api/health"
 	bulwarkauthmiddleware "github.com/latebit-io/bulwarkauthadmin/api/middleware"
 	rbacapi "github.com/latebit-io/bulwarkauthadmin/api/rbac"
+	tenantsapi "github.com/latebit-io/bulwarkauthadmin/api/tenants"
 	"github.com/latebit-io/bulwarkauthadmin/internal/accounts"
 	adminAccount "github.com/latebit-io/bulwarkauthadmin/internal/accounts/admin"
 	accountsRbac "github.com/latebit-io/bulwarkauthadmin/internal/accounts/rbac"
 	"github.com/latebit-io/bulwarkauthadmin/internal/rbac"
+	"github.com/latebit-io/bulwarkauthadmin/internal/tenants"
 	"github.com/latebit-io/bulwarkauthadmin/internal/version"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -70,6 +72,14 @@ func main() {
 	bulwarkGuard := bulwark.NewGuard(config.BulwarkAuthUrl, httpClient)
 	jwt := bulwarkauthmiddleware.NewJWTMiddleware(bulwarkGuard)
 	mongodb := client.Database("bulwarkauth" + config.DbNameSeed)
+	tenantRepository := tenants.NewMongoDbTenantRepository(mongodb)
+	err = tenantRepository.CreateSystem(context.Background())
+	if err != nil {
+		panic(err)
+	}
+	tenantService := tenants.NewDefaultTenantService(tenantRepository)
+	tenantsHandler := tenantsapi.NewTenantHandler(tenantService)
+	tenantsapi.TenantRoutesV1(service, tenantsHandler)
 	accountRepository := accounts.NewMongoDBAccountRepository(mongodb)
 	accountsManagmentService := accounts.NewAccountManagementServiceDefault(accountRepository)
 	accountsHandler := accountsapi.NewAccountHandler(accountsManagmentService)

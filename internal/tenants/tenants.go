@@ -2,11 +2,13 @@ package tenants
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 const (
@@ -26,6 +28,7 @@ type TenantRepository interface {
 	ReadAll(ctx context.Context) ([]Tenant, error)
 	Read(ctx context.Context, tenantID string) (*Tenant, error)
 	Create(ctx context.Context, tenant Tenant) error
+	CreateSystem(ctx context.Context) error
 	Update(ctx context.Context, tenant Tenant) error
 	Delete(ctx context.Context, tenantID string) error
 }
@@ -43,9 +46,26 @@ type MongoDbTenantRepository struct {
 }
 
 func NewMongoDbTenantRepository(db *mongo.Database) TenantRepository {
-	return &MongoDbTenantRepository{
+	repo := &MongoDbTenantRepository{
 		db: db,
 	}
+
+	// Create unique index on name field
+	collection := db.Collection(tenantCollection)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	indexModel := mongo.IndexModel{
+		Keys:    bson.D{{Key: "name", Value: 1}},
+		Options: options.Index().SetUnique(true),
+	}
+
+	_, err := collection.Indexes().CreateOne(ctx, indexModel)
+	if err != nil {
+		fmt.Printf("Warning: failed to create unique index on tenant name: %v\n", err)
+	}
+
+	return repo
 }
 
 func (t *MongoDbTenantRepository) ReadAll(ctx context.Context) ([]Tenant, error) {
@@ -77,6 +97,9 @@ func (t *MongoDbTenantRepository) Read(ctx context.Context, tenantID string) (*T
 	var tenant Tenant
 	err := collection.FindOne(ctx, filter).Decode(&tenant)
 	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return nil, TenantNotFoundError{Value: tenantID}
+		}
 		return nil, err
 	}
 	return &tenant, nil
@@ -88,6 +111,29 @@ func (t *MongoDbTenantRepository) Create(ctx context.Context, tenant Tenant) err
 	tenant.Created = time.Now()
 	tenant.Modified = time.Now()
 	_, err := collection.InsertOne(ctx, tenant)
+
+	if err != nil {
+		if mongo.IsDuplicateKeyError(err) {
+			return TenantDuplicateError{
+				Value: tenant.Name,
+			}
+		}
+		return err
+	}
+
+	return nil
+}
+
+func (t *MongoDbTenantRepository) CreateSystem(ctx context.Context) error {
+	collection := t.db.Collection(tenantCollection)
+	systemTenant := Tenant{
+		ID:          uuid.Nil.String(),
+		Name:        "System",
+		Description: "System tenant",
+		Created:     time.Now(),
+		Modified:    time.Now(),
+	}
+	_, err := collection.InsertOne(ctx, systemTenant)
 	return err
 }
 
@@ -99,7 +145,13 @@ func (t *MongoDbTenantRepository) Update(ctx context.Context, tenant Tenant) err
 
 func (t *MongoDbTenantRepository) Delete(ctx context.Context, tenantID string) error {
 	collection := t.db.Collection(tenantCollection)
-	_, err := collection.DeleteOne(ctx, bson.M{"id": tenantID})
+	result, err := collection.DeleteOne(ctx, bson.M{"id": tenantID})
+	if err != nil {
+		return err
+	}
+	if result.DeletedCount == 0 {
+		return TenantNotFoundError{Value: tenantID}
+	}
 	return err
 }
 

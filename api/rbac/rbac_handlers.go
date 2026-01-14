@@ -60,6 +60,7 @@ type DoesPermissionExistRequest struct {
 }
 
 func (r *RbacHandler) DoesPermissionExist(c echo.Context) error {
+	permissionKey := c.Param("tenantid")
 	permissionExistRequest := &DoesPermissionExistRequest{}
 	if err := c.Bind(permissionExistRequest); err != nil {
 		httpError := problem.NewBadRequest(err)
@@ -68,7 +69,8 @@ func (r *RbacHandler) DoesPermissionExist(c echo.Context) error {
 
 	ctx := c.Request().Context()
 
-	exists, err := r.permissionServices.DoesPermissionExist(ctx, permissionExistRequest.Key)
+	exists, err := r.permissionServices.DoesPermissionExist(ctx,
+		permissionExistRequest.TenantID, permissionExistRequest.Key)
 	if err != nil {
 		httpError := problem.NewServerError(err)
 		return echo.NewHTTPError(httpError.Status, httpError)
@@ -86,7 +88,9 @@ func (r *RbacHandler) ListPermissions(c echo.Context) error {
 
 	ctx := c.Request().Context()
 
-	permissions, err := r.permissionServices.ListPermissions(ctx, listPermissionsRequest.PageOptions)
+	permissions, err := r.permissionServices.ListPermissions(ctx,
+		listPermissionsRequest.TenantID,
+		listPermissionsRequest.PageOptions)
 	if err != nil {
 		httpError := problem.NewServerError(err)
 		return echo.NewHTTPError(httpError.Status, httpError)
