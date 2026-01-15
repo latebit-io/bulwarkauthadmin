@@ -77,24 +77,34 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+
 	tenantService := tenants.NewDefaultTenantService(tenantRepository)
-	tenantsHandler := tenantsapi.NewTenantHandler(tenantService)
-	tenantsapi.TenantRoutesV1(service, tenantsHandler)
+	adminGroup := service.Group("/api/v1/admin")
+	adminGroup.Use(jwt.JwtForSystemRoutes) // Validate JWT with system tenant
+	adminGroup.Use(bulwarkauthmiddleware.RequireSystemAdmin)
+	tenantsHandler := tenantsapi.NewTenantHandler(tenantService) // Require bulwark_admin role
+	tenantsapi.TenantRoutesV1(adminGroup, tenantsHandler)
+
+	tenantMiddleware := bulwarkauthmiddleware.NewTenantMiddleware(tenantService)
+	tenantGroup := service.Group("/api/v1/tenant/:tenantid")
+	tenantGroup.Use(jwt.Jwt)
+	tenantGroup.Use(tenantMiddleware.ExtractAndAuthorizeTenant)
+
 	accountRepository := accounts.NewMongoDBAccountRepository(mongodb)
 	accountsManagmentService := accounts.NewAccountManagementServiceDefault(accountRepository)
 	accountsHandler := accountsapi.NewAccountHandler(accountsManagmentService)
-	accountsapi.AccountRoutesV1(service, accountsHandler)
+	accountsapi.AccountRoutesV1(tenantGroup, accountsHandler)
 
 	permissionsRepository := rbac.NewMongoDBPermissionsRepository(mongodb)
 	rolesRepository := rbac.NewMongoDBRolesRepository(mongodb)
 	roleService := rbac.NewRoleServiceDefault(rolesRepository)
 	permissionService := rbac.NewPermissionServiceDefault(permissionsRepository)
 	rbacHandler := rbacapi.NewRbacHandler(roleService, permissionService)
-	rbacapi.RbacRoutesV1(service, rbacHandler)
+	rbacapi.RbacRoutesV1(tenantGroup, rbacHandler)
 
 	accountsRBAC := accountsRbac.NewAccountRBACServiceDefault(accountRepository, permissionService, roleService)
 	accountsRbacHandler := accountsrbacapi.NewAccountRBACHandler(accountsRBAC)
-	accountsrbacapi.AccountRBACRoutesV1(service, accountsRbacHandler)
+	accountsrbacapi.AccountRBACRoutesV1(tenantGroup, accountsRbacHandler)
 
 	adminAccountService := adminAccount.NewAdminAccountsServiceDefault(
 		accountRepository,

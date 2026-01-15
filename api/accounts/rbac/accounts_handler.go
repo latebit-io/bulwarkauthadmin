@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/labstack/echo/v4"
+	"github.com/latebit-io/bulwarkauthadmin/api/middleware"
 	"github.com/latebit-io/bulwarkauthadmin/api/problem"
 	accountsRbac "github.com/latebit-io/bulwarkauthadmin/internal/accounts/rbac"
 	"github.com/latebit-io/bulwarkauthadmin/internal/rbac"
@@ -43,6 +44,7 @@ func NewAccountRBACHandler(accountRbacService accountsRbac.AccountRBACService) *
 }
 
 func (ah *AccountRBACHandler) AssignRole(c echo.Context) error {
+	tenantID := middleware.GetTenantIDFromEcho(c)
 	accountID := c.Param("id")
 	if accountID == "" {
 		httpError := problem.NewBadRequest(errors.New("account is required"))
@@ -61,7 +63,7 @@ func (ah *AccountRBACHandler) AssignRole(c echo.Context) error {
 		return echo.NewHTTPError(httpError.Status, httpError)
 	}
 	ctx := c.Request().Context()
-	err = ah.accountRbacService.AssignRole(ctx, accountID, assignRoleRequest.Role)
+	err = ah.accountRbacService.AssignRole(ctx, tenantID, accountID, assignRoleRequest.Role)
 	if err != nil {
 		var roleNotFound rbac.RoleNotFoundError
 		if errors.As(err, &roleNotFound) {
@@ -76,6 +78,7 @@ func (ah *AccountRBACHandler) AssignRole(c echo.Context) error {
 }
 
 func (ah *AccountRBACHandler) RemoveRole(c echo.Context) error {
+	tenantID := middleware.GetTenantIDFromEcho(c)
 	accountID := c.Param("id")
 	if accountID == "" {
 		httpError := problem.NewBadRequest(errors.New("account is required"))
@@ -89,7 +92,7 @@ func (ah *AccountRBACHandler) RemoveRole(c echo.Context) error {
 	}
 
 	ctx := c.Request().Context()
-	err := ah.accountRbacService.RemoveRole(ctx, accountID, role)
+	err := ah.accountRbacService.RemoveRole(ctx, tenantID, accountID, role)
 	if err != nil {
 		httpError := problem.NewServerError(err)
 		return echo.NewHTTPError(httpError.Status, httpError)
@@ -99,6 +102,7 @@ func (ah *AccountRBACHandler) RemoveRole(c echo.Context) error {
 }
 
 func (ah *AccountRBACHandler) AssignPermission(c echo.Context) error {
+	tenantID := middleware.GetTenantIDFromEcho(c)
 	accountID := c.Param("id")
 	if accountID == "" {
 		httpError := problem.NewBadRequest(errors.New("account is required"))
@@ -117,7 +121,7 @@ func (ah *AccountRBACHandler) AssignPermission(c echo.Context) error {
 		return echo.NewHTTPError(httpError.Status, httpError)
 	}
 	ctx := c.Request().Context()
-	err = ah.accountRbacService.AssignPermission(ctx, accountID, assignPermissionRequest.Permission)
+	err = ah.accountRbacService.AssignPermission(ctx, tenantID, accountID, assignPermissionRequest.Permission)
 	if err != nil {
 		var permissionNotFound rbac.PermissionNotFoundError
 		if errors.As(err, &permissionNotFound) {
@@ -132,6 +136,7 @@ func (ah *AccountRBACHandler) AssignPermission(c echo.Context) error {
 }
 
 func (ah *AccountRBACHandler) RemovePermission(c echo.Context) error {
+	tenantID := middleware.GetTenantIDFromEcho(c)
 	accountID := c.Param("id")
 	if accountID == "" {
 		httpError := problem.NewBadRequest(errors.New("account is required"))
@@ -145,7 +150,7 @@ func (ah *AccountRBACHandler) RemovePermission(c echo.Context) error {
 	}
 
 	ctx := c.Request().Context()
-	err := ah.accountRbacService.RemovePermission(ctx, accountID, permission)
+	err := ah.accountRbacService.RemovePermission(ctx, tenantID, accountID, permission)
 	if err != nil {
 		httpError := problem.NewServerError(err)
 		return echo.NewHTTPError(httpError.Status, httpError)

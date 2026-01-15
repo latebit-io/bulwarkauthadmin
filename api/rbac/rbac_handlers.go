@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/labstack/echo/v4"
+	"github.com/latebit-io/bulwarkauthadmin/api/middleware"
 	"github.com/latebit-io/bulwarkauthadmin/api/problem"
 	"github.com/latebit-io/bulwarkauthadmin/internal/rbac"
 	"github.com/latebit-io/bulwarkauthadmin/internal/shared"
@@ -60,17 +61,11 @@ type DoesPermissionExistRequest struct {
 }
 
 func (r *RbacHandler) DoesPermissionExist(c echo.Context) error {
-	permissionKey := c.Param("tenantid")
-	permissionExistRequest := &DoesPermissionExistRequest{}
-	if err := c.Bind(permissionExistRequest); err != nil {
-		httpError := problem.NewBadRequest(err)
-		return echo.NewHTTPError(httpError.Status, httpError)
-	}
-
+	tenantID := middleware.GetTenantIDFromEcho(c)
+	permissionKey := c.Param("permissionid")
 	ctx := c.Request().Context()
-
 	exists, err := r.permissionServices.DoesPermissionExist(ctx,
-		permissionExistRequest.TenantID, permissionExistRequest.Key)
+		tenantID, permissionKey)
 	if err != nil {
 		httpError := problem.NewServerError(err)
 		return echo.NewHTTPError(httpError.Status, httpError)
@@ -80,6 +75,7 @@ func (r *RbacHandler) DoesPermissionExist(c echo.Context) error {
 }
 
 func (r *RbacHandler) ListPermissions(c echo.Context) error {
+	tenantID := middleware.GetTenantIDFromEcho(c)
 	listPermissionsRequest := &ListPermissionsRequest{}
 	if err := c.Bind(listPermissionsRequest); err != nil {
 		httpError := problem.NewBadRequest(err)
@@ -87,9 +83,8 @@ func (r *RbacHandler) ListPermissions(c echo.Context) error {
 	}
 
 	ctx := c.Request().Context()
-
 	permissions, err := r.permissionServices.ListPermissions(ctx,
-		listPermissionsRequest.TenantID,
+		tenantID,
 		listPermissionsRequest.PageOptions)
 	if err != nil {
 		httpError := problem.NewServerError(err)
@@ -100,6 +95,7 @@ func (r *RbacHandler) ListPermissions(c echo.Context) error {
 }
 
 func (r *RbacHandler) DeletePermission(c echo.Context) error {
+	tenantID := middleware.GetTenantIDFromEcho(c)
 	permissionKey := c.Param("id")
 	if permissionKey == "" {
 		httpError := problem.NewBadRequest(errors.New("permission key is required"))
@@ -110,7 +106,7 @@ func (r *RbacHandler) DeletePermission(c echo.Context) error {
 	action := strings.Split(permissionKey, ":")[1]
 
 	ctx := c.Request().Context()
-	if err := r.permissionServices.DeletePermission(ctx, name, action); err != nil {
+	if err := r.permissionServices.DeletePermission(ctx, tenantID, name, action); err != nil {
 		var permissionNotFoundError rbac.PermissionNotFoundError
 		notFound := errors.As(err, &permissionNotFoundError)
 		if notFound {
@@ -129,6 +125,7 @@ func (r *RbacHandler) DeletePermission(c echo.Context) error {
 }
 
 func (r *RbacHandler) CreatePermission(c echo.Context) error {
+	tenantID := middleware.GetTenantIDFromEcho(c)
 	newPermissionRequest := &NewPermissionRequest{}
 	if err := c.Bind(newPermissionRequest); err != nil {
 		httpError := problem.NewBadRequest(err)
@@ -141,7 +138,8 @@ func (r *RbacHandler) CreatePermission(c echo.Context) error {
 	}
 
 	ctx := c.Request().Context()
-	if err := r.permissionServices.CreatePermission(ctx, newPermissionRequest.Name, newPermissionRequest.Action); err != nil {
+	if err := r.permissionServices.CreatePermission(ctx, tenantID,
+		newPermissionRequest.Name, newPermissionRequest.Action); err != nil {
 		var permissionDuplicateError rbac.PermissionDuplicateError
 		duplicate := errors.As(err, &permissionDuplicateError)
 		if duplicate {
@@ -161,6 +159,7 @@ func (r *RbacHandler) CreatePermission(c echo.Context) error {
 }
 
 func (r *RbacHandler) CreateRole(c echo.Context) error {
+	tenantID := middleware.GetTenantIDFromEcho(c)
 	newRoleRequest := &NewRoleRequest{}
 	if err := c.Bind(newRoleRequest); err != nil {
 		httpError := problem.NewBadRequest(err)
@@ -174,7 +173,8 @@ func (r *RbacHandler) CreateRole(c echo.Context) error {
 	}
 
 	ctx := c.Request().Context()
-	if err := r.roleServices.CreateRole(ctx, newRoleRequest.Name, newRoleRequest.Description); err != nil {
+	if err := r.roleServices.CreateRole(ctx, tenantID, newRoleRequest.Name,
+		newRoleRequest.Description); err != nil {
 		var roleDuplicateError rbac.RoleDuplicateError
 		duplicate := errors.As(err, &roleDuplicateError)
 		if duplicate {
@@ -194,6 +194,7 @@ func (r *RbacHandler) CreateRole(c echo.Context) error {
 }
 
 func (r *RbacHandler) UpdateRole(c echo.Context) error {
+	tenantID := middleware.GetTenantIDFromEcho(c)
 	roleName := c.Param("id")
 	if roleName == "" {
 		httpError := problem.NewBadRequest(errors.New("role name is required"))
@@ -207,7 +208,7 @@ func (r *RbacHandler) UpdateRole(c echo.Context) error {
 	}
 
 	ctx := c.Request().Context()
-	if err := r.roleServices.UpdateRole(ctx, roleName, updateRoleRequest.Description); err != nil {
+	if err := r.roleServices.UpdateRole(ctx, tenantID, roleName, updateRoleRequest.Description); err != nil {
 		var roleNotFoundError rbac.RoleNotFoundError
 		notFound := errors.As(err, &roleNotFoundError)
 		if notFound {
@@ -227,6 +228,7 @@ func (r *RbacHandler) UpdateRole(c echo.Context) error {
 }
 
 func (r *RbacHandler) DeleteRole(c echo.Context) error {
+	tenantID := middleware.GetTenantIDFromEcho(c)
 	roleName := c.Param("id")
 	if roleName == "" {
 		httpError := problem.NewBadRequest(errors.New("role name is required"))
@@ -234,7 +236,7 @@ func (r *RbacHandler) DeleteRole(c echo.Context) error {
 	}
 
 	ctx := c.Request().Context()
-	if err := r.roleServices.DeleteRole(ctx, roleName); err != nil {
+	if err := r.roleServices.DeleteRole(ctx, tenantID, roleName); err != nil {
 		var roleNotFoundError rbac.RoleNotFoundError
 		notFound := errors.As(err, &roleNotFoundError)
 		if notFound {
@@ -254,6 +256,7 @@ func (r *RbacHandler) DeleteRole(c echo.Context) error {
 }
 
 func (r *RbacHandler) GetRole(c echo.Context) error {
+	tenantID := middleware.GetTenantIDFromEcho(c)
 	roleName := c.Param("id")
 	if roleName == "" {
 		httpError := problem.NewBadRequest(errors.New("role name is required"))
@@ -261,7 +264,7 @@ func (r *RbacHandler) GetRole(c echo.Context) error {
 	}
 
 	ctx := c.Request().Context()
-	role, err := r.roleServices.GetRole(ctx, roleName)
+	role, err := r.roleServices.GetRole(ctx, tenantID, roleName)
 	if err != nil {
 		var roleNotFoundError rbac.RoleNotFoundError
 		notFound := errors.As(err, &roleNotFoundError)
@@ -282,6 +285,7 @@ func (r *RbacHandler) GetRole(c echo.Context) error {
 }
 
 func (r *RbacHandler) ListRoles(c echo.Context) error {
+	tenantID := middleware.GetTenantIDFromEcho(c)
 	ctx := c.Request().Context()
 	listRolesRequest := &ListRolesRequest{}
 	if err := c.Bind(listRolesRequest); err != nil {
@@ -290,7 +294,7 @@ func (r *RbacHandler) ListRoles(c echo.Context) error {
 	}
 
 	pagingOptions := shared.NewPageOptions(listRolesRequest.Page, listRolesRequest.Size, "")
-	roles, err := r.roleServices.ListRoles(ctx, pagingOptions)
+	roles, err := r.roleServices.ListRoles(ctx, tenantID, pagingOptions)
 	if err != nil {
 		httpError := problem.NewServerError(err)
 		return echo.NewHTTPError(httpError.Status, httpError)
@@ -300,6 +304,7 @@ func (r *RbacHandler) ListRoles(c echo.Context) error {
 }
 
 func (r *RbacHandler) AddPermissionToRole(c echo.Context) error {
+	tenantID := middleware.GetTenantIDFromEcho(c)
 	roleName := c.Param("id")
 	if roleName == "" {
 		httpError := problem.NewBadRequest(errors.New("role name is required"))
@@ -313,7 +318,7 @@ func (r *RbacHandler) AddPermissionToRole(c echo.Context) error {
 		return echo.NewHTTPError(httpError.Status, httpError)
 	}
 
-	err := r.roleServices.AddPermission(ctx, roleName, addPermissionRequest.PermissionKey)
+	err := r.roleServices.AddPermission(ctx, tenantID, roleName, addPermissionRequest.PermissionKey)
 	if err != nil {
 		httpError := problem.NewServerError(err)
 		return echo.NewHTTPError(httpError.Status, httpError)
@@ -323,6 +328,7 @@ func (r *RbacHandler) AddPermissionToRole(c echo.Context) error {
 }
 
 func (r *RbacHandler) RemovePermissionFromRole(c echo.Context) error {
+	tenantID := middleware.GetTenantIDFromEcho(c)
 	roleName := c.Param("id")
 	if roleName == "" {
 		httpError := problem.NewBadRequest(errors.New("role name is required"))
@@ -336,7 +342,7 @@ func (r *RbacHandler) RemovePermissionFromRole(c echo.Context) error {
 	}
 
 	ctx := c.Request().Context()
-	err := r.roleServices.RemovePermission(ctx, roleName, permissionKey)
+	err := r.roleServices.RemovePermission(ctx, tenantID, roleName, permissionKey)
 	if err != nil {
 		httpError := problem.NewServerError(err)
 		return echo.NewHTTPError(httpError.Status, httpError)
