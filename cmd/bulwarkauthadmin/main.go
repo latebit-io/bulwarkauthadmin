@@ -132,7 +132,6 @@ func main() {
 	healthHandler := health.NewHealthHandler()
 	health.HealthRoutes(service, healthHandler)
 	corsSetting(service, config, logger)
-	service.Use(jwt.Jwt)
 
 	if err := service.Start(fmt.Sprintf(":%d", config.Port)); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		logger.Error(err.Error())

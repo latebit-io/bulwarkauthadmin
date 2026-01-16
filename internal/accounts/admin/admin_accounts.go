@@ -36,22 +36,27 @@ type AdminAccountsServiceDefault struct {
 
 // CreateInternalRoles implements AdminAccountsService.
 func (a *AdminAccountsServiceDefault) CreateInternalRoles(ctx context.Context) error {
-	adminPermission := rbac.NewPermission(systemTenantID, bulwarkAdminPermission, bulwarkAdminAction)
-	err := a.permissionsRepository.Create(ctx, systemTenantID, adminPermission)
-	if err != nil {
-		var duplicatePermission rbac.PermissionDuplicateError
-		if !errors.As(err, &duplicatePermission) {
-			return err
-		}
-	}
+	// Create internal roles for system tenant
+	tenantIDs := []string{systemTenantID, "default"}
 
-	adminRole := rbac.NewRole(systemTenantID, bulwarkAdminRole, bulwarkAdminRoleDescription)
-	adminRole.AddPermission(adminPermission.Key)
-	err = a.rolesRepository.Create(ctx, systemTenantID, adminRole)
-	if err != nil {
-		var duplicateRole rbac.RoleDuplicateError
-		if !errors.As(err, &duplicateRole) {
-			return err
+	for _, tenantID := range tenantIDs {
+		adminPermission := rbac.NewPermission(tenantID, bulwarkAdminPermission, bulwarkAdminAction)
+		err := a.permissionsRepository.Create(ctx, tenantID, adminPermission)
+		if err != nil {
+			var duplicatePermission rbac.PermissionDuplicateError
+			if !errors.As(err, &duplicatePermission) {
+				return err
+			}
+		}
+
+		adminRole := rbac.NewRole(tenantID, bulwarkAdminRole, bulwarkAdminRoleDescription)
+		adminRole.AddPermission(adminPermission.Key)
+		err = a.rolesRepository.Create(ctx, tenantID, adminRole)
+		if err != nil {
+			var duplicateRole rbac.RoleDuplicateError
+			if !errors.As(err, &duplicateRole) {
+				return err
+			}
 		}
 	}
 	return nil

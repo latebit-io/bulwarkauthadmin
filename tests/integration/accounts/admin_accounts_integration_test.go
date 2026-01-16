@@ -4,7 +4,6 @@ package accounts
 
 import (
 	"encoding/json"
-	"net/http"
 	"testing"
 
 	"github.com/latebit-io/bulwarkauthadmin/tests/integration"
@@ -14,13 +13,15 @@ import (
 
 // TestAdminService_InternalRolesCreated verifies that the admin service
 // CreateInternalRoles was called at startup and created the bulwark_admin role and permission
+// in the system tenant (UUID nil: 00000000-0000-0000-0000-000000000000)
 func TestAdminService_InternalRolesCreated(t *testing.T) {
-	integration.WaitForService(t, 20)
+	tc := integration.NewTestContext(t)
 
-	baseURL := integration.GetBaseURL()
+	// The admin roles are created in the system tenant
+	// Our test context uses the system tenant, so we can query directly
 
 	// Test 1: Verify bulwark_admin role exists
-	resp, err := http.Get(baseURL + "/api/v1/rbac/roles")
+	resp, err := tc.Get("/rbac/roles")
 	require.NoError(t, err)
 	defer resp.Body.Close()
 
@@ -45,7 +46,7 @@ func TestAdminService_InternalRolesCreated(t *testing.T) {
 	assert.Contains(t, permissions, "bulwark_admin:write", "Role should contain bulwark_admin:write permission")
 
 	// Test 3: Verify bulwark_admin:write permission exists
-	resp, err = http.Get(baseURL + "/api/v1/rbac/permissions")
+	resp, err = tc.Get("/rbac/permissions")
 	require.NoError(t, err)
 	defer resp.Body.Close()
 
@@ -68,11 +69,9 @@ func TestAdminService_InternalRolesCreated(t *testing.T) {
 
 // TestAdminService_RoleConstants verifies the admin role uses the expected constant values
 func TestAdminService_RoleConstants(t *testing.T) {
-	integration.WaitForService(t, 20)
+	tc := integration.NewTestContext(t)
 
-	baseURL := integration.GetBaseURL()
-
-	resp, err := http.Get(baseURL + "/api/v1/rbac/roles")
+	resp, err := tc.Get("/rbac/roles")
 	require.NoError(t, err)
 	defer resp.Body.Close()
 
@@ -96,11 +95,9 @@ func TestAdminService_RoleConstants(t *testing.T) {
 
 // TestAdminService_PermissionConstants verifies the admin permission uses expected constant values
 func TestAdminService_PermissionConstants(t *testing.T) {
-	integration.WaitForService(t, 20)
+	tc := integration.NewTestContext(t)
 
-	baseURL := integration.GetBaseURL()
-
-	resp, err := http.Get(baseURL + "/api/v1/rbac/permissions")
+	resp, err := tc.Get("/rbac/permissions")
 	require.NoError(t, err)
 	defer resp.Body.Close()
 
@@ -126,12 +123,10 @@ func TestAdminService_PermissionConstants(t *testing.T) {
 // TestAdminService_InternalRolesIdempotency verifies that CreateInternalRoles
 // is safe to call multiple times (service restarts don't create duplicates)
 func TestAdminService_InternalRolesIdempotency(t *testing.T) {
-	integration.WaitForService(t, 20)
-
-	baseURL := integration.GetBaseURL()
+	tc := integration.NewTestContext(t)
 
 	// Count how many bulwark_admin roles exist (should be exactly 1)
-	resp, err := http.Get(baseURL + "/api/v1/rbac/roles")
+	resp, err := tc.Get("/rbac/roles")
 	require.NoError(t, err)
 	defer resp.Body.Close()
 
@@ -149,7 +144,7 @@ func TestAdminService_InternalRolesIdempotency(t *testing.T) {
 	assert.Equal(t, 1, adminRoleCount, "Should have exactly one bulwark_admin role (CreateInternalRoles should be idempotent)")
 
 	// Count how many bulwark_admin:write permissions exist (should be exactly 1)
-	resp, err = http.Get(baseURL + "/api/v1/rbac/permissions")
+	resp, err = tc.Get("/rbac/permissions")
 	require.NoError(t, err)
 	defer resp.Body.Close()
 

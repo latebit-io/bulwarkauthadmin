@@ -24,6 +24,7 @@ func NewAppConfig() (*AppConfig, error) {
 	config.BulwarkAuthUrl = getEnv("BULWARK_AUTH_URL", "http://localhost:5173")
 	config.Port = getEnvAsInt("PORT", 8080)
 	config.DbConnection = getEnv("DB_CONNECTION", "mongodb://localhost:27017/?connect=direct")
+	config.DbNameSeed = getEnv("DB_NAME_SEED", "")
 	config.AllowedOrigins = getEnvAsStringSlice("ALLOWED_WEB_ORIGINS", []string{"http://localhost:5173"})
 	// SECURITY WARNING:
 	// These environment variables are intended only for initial provisioning.

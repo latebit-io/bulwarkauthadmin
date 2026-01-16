@@ -14,7 +14,7 @@ import (
 
 type Role struct {
 	ID          string    `json:"id" bson:"id"`
-	TenantID    string    `json:"id" bson:"id"`
+	TenantID    string    `json:"tenantId" bson:"tenantId"`
 	Name        string    `json:"name" bson:"name"`
 	Description string    `json:"description" bson:"description"`
 	Permissions []string  `json:"permissionIds" bson:"permissionIds"`

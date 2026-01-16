@@ -16,12 +16,12 @@ const (
 )
 
 type Tenant struct {
-	ID          string    `json:"id"`
-	Name        string    `json:"name"`
-	Description string    `json:"description"`
-	Domain      string    `json:"domain"`
-	Created     time.Time `json:"created_at"`
-	Modified    time.Time `json:"modified_at"`
+	ID          string    `bson:"id" json:"id"`
+	Name        string    `bson:"name" json:"name"`
+	Description string    `bson:"description" json:"description"`
+	Domain      string    `bson:"domain" json:"domain"`
+	Created     time.Time `bson:"created" json:"created_at"`
+	Modified    time.Time `bson:"modified" json:"modified_at"`
 }
 
 type TenantRepository interface {
@@ -134,7 +134,14 @@ func (t *MongoDbTenantRepository) CreateSystem(ctx context.Context) error {
 		Modified:    time.Now(),
 	}
 	_, err := collection.InsertOne(ctx, systemTenant)
-	return err
+	if err != nil {
+		// If system tenant already exists, that's fine - this is idempotent
+		if mongo.IsDuplicateKeyError(err) {
+			return nil
+		}
+		return err
+	}
+	return nil
 }
 
 func (t *MongoDbTenantRepository) Update(ctx context.Context, tenant Tenant) error {

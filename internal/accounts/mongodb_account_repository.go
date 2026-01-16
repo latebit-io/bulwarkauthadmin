@@ -88,7 +88,7 @@ func (m *MongoDBAccountRepository) Create(ctx context.Context, accountModel Acco
 			{Key: "permissions", Value: accountModel.Permissions},
 			{Key: "isVerified", Value: accountModel.IsVerified},
 			{Key: "verificationToken", Value: verificationToken.String()},
-			{Key: "isEnabled", Value: false},
+			{Key: "isEnabled", Value: accountModel.IsEnabled},
 			{Key: "isDeleted", Value: false},
 			{Key: "created", Value: time.Now()},
 			{Key: "modified", Value: time.Now()},
