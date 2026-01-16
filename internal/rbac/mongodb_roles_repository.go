@@ -100,7 +100,7 @@ func (m *MongoDBRolesRepository) Update(ctx context.Context, tenantID string, ro
 	role.TenantID = tenantID
 	collection := m.db.Collection(m.collectionName)
 	role.Modified = time.Now()
-	filter := bson.M{"name": role.Name}
+	filter := bson.M{"tenantId": tenantID, "name": role.Name}
 	update := bson.M{"$set": role}
 	_, err := collection.UpdateOne(ctx, filter, update)
 	if err != nil {

@@ -584,3 +584,33 @@ func (tc *TestContext) Patch(path string, payload interface{}) (*http.Response, 
 func (tc *TestContext) Delete(path string) (*http.Response, error) {
 	return MakeAuthenticatedRequest(http.MethodDelete, tc.BaseURL+path, tc.AccessToken, nil)
 }
+
+// SetupSystemAdminContext creates a test context authenticated as the system admin
+// The system admin account must be created via ADMIN_ACCOUNT and ADMIN_ACCOUNT_PASSWORD env vars
+func SetupSystemAdminContext(t *testing.T) *TestContext {
+	WaitForService(t, 20)
+	WaitForBulwarkAuth(t, 20)
+
+	// Get system admin credentials from environment
+	adminEmail := os.Getenv("ADMIN_ACCOUNT")
+	adminPassword := os.Getenv("ADMIN_ACCOUNT_PASSWORD")
+
+	if adminEmail == "" || adminPassword == "" {
+		t.Fatal("ADMIN_ACCOUNT and ADMIN_ACCOUNT_PASSWORD environment variables must be set for system admin tests")
+	}
+
+	// Authenticate as system admin via bulwarkauth
+	// System admin is created in system tenant, but authenticates via bulwarkauth's default tenant
+	accessToken, err := authenticateWithPassword(DefaultTenantID, adminEmail, adminPassword, "integration-test-client")
+	if err != nil {
+		t.Fatalf("Failed to authenticate as system admin: %v", err)
+	}
+
+	// System admin accesses the system tenant via the API
+	return &TestContext{
+		TenantID:    SystemTenantID,
+		AccessToken: accessToken,
+		BaseURL:     fmt.Sprintf("%s/api/v1/tenant/%s", baseURL, SystemTenantID),
+		T:           t,
+	}
+}

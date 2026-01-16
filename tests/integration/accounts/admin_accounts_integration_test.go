@@ -15,10 +15,7 @@ import (
 // CreateInternalRoles was called at startup and created the bulwark_admin role and permission
 // in the system tenant (UUID nil: 00000000-0000-0000-0000-000000000000)
 func TestAdminService_InternalRolesCreated(t *testing.T) {
-	tc := integration.NewTestContext(t)
-
-	// The admin roles are created in the system tenant
-	// Our test context uses the system tenant, so we can query directly
+	tc := integration.SetupSystemAdminContext(t)
 
 	// Test 1: Verify bulwark_admin role exists
 	resp, err := tc.Get("/rbac/roles")
@@ -69,7 +66,7 @@ func TestAdminService_InternalRolesCreated(t *testing.T) {
 
 // TestAdminService_RoleConstants verifies the admin role uses the expected constant values
 func TestAdminService_RoleConstants(t *testing.T) {
-	tc := integration.NewTestContext(t)
+	tc := integration.SetupSystemAdminContext(t)
 
 	resp, err := tc.Get("/rbac/roles")
 	require.NoError(t, err)
@@ -95,7 +92,7 @@ func TestAdminService_RoleConstants(t *testing.T) {
 
 // TestAdminService_PermissionConstants verifies the admin permission uses expected constant values
 func TestAdminService_PermissionConstants(t *testing.T) {
-	tc := integration.NewTestContext(t)
+	tc := integration.SetupSystemAdminContext(t)
 
 	resp, err := tc.Get("/rbac/permissions")
 	require.NoError(t, err)
@@ -123,7 +120,7 @@ func TestAdminService_PermissionConstants(t *testing.T) {
 // TestAdminService_InternalRolesIdempotency verifies that CreateInternalRoles
 // is safe to call multiple times (service restarts don't create duplicates)
 func TestAdminService_InternalRolesIdempotency(t *testing.T) {
-	tc := integration.NewTestContext(t)
+	tc := integration.SetupSystemAdminContext(t)
 
 	// Count how many bulwark_admin roles exist (should be exactly 1)
 	resp, err := tc.Get("/rbac/roles")

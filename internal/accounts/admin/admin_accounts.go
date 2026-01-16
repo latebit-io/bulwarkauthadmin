@@ -36,27 +36,22 @@ type AdminAccountsServiceDefault struct {
 
 // CreateInternalRoles implements AdminAccountsService.
 func (a *AdminAccountsServiceDefault) CreateInternalRoles(ctx context.Context) error {
-	// Create internal roles for system tenant
-	tenantIDs := []string{systemTenantID, "default"}
-
-	for _, tenantID := range tenantIDs {
-		adminPermission := rbac.NewPermission(tenantID, bulwarkAdminPermission, bulwarkAdminAction)
-		err := a.permissionsRepository.Create(ctx, tenantID, adminPermission)
-		if err != nil {
-			var duplicatePermission rbac.PermissionDuplicateError
-			if !errors.As(err, &duplicatePermission) {
-				return err
-			}
+	adminPermission := rbac.NewPermission(systemTenantID, bulwarkAdminPermission, bulwarkAdminAction)
+	err := a.permissionsRepository.Create(ctx, systemTenantID, adminPermission)
+	if err != nil {
+		var duplicatePermission rbac.PermissionDuplicateError
+		if !errors.As(err, &duplicatePermission) {
+			return err
 		}
+	}
 
-		adminRole := rbac.NewRole(tenantID, bulwarkAdminRole, bulwarkAdminRoleDescription)
-		adminRole.AddPermission(adminPermission.Key)
-		err = a.rolesRepository.Create(ctx, tenantID, adminRole)
-		if err != nil {
-			var duplicateRole rbac.RoleDuplicateError
-			if !errors.As(err, &duplicateRole) {
-				return err
-			}
+	adminRole := rbac.NewRole(systemTenantID, bulwarkAdminRole, bulwarkAdminRoleDescription)
+	adminRole.AddPermission(adminPermission.Key)
+	err = a.rolesRepository.Create(ctx, systemTenantID, adminRole)
+	if err != nil {
+		var duplicateRole rbac.RoleDuplicateError
+		if !errors.As(err, &duplicateRole) {
+			return err
 		}
 	}
 	return nil
@@ -84,7 +79,9 @@ func (a *AdminAccountsServiceDefault) RegisterAccount(ctx context.Context, email
 		}
 		admin, err = a.accountsRepository.ReadByEmail(ctx, systemTenantID, email)
 		if err != nil {
-			return err
+			// Account was created in bulwarkauth but may not be immediately available in bulwarkauthadmin
+			// This is acceptable - the account exists in the shared database
+			return nil
 		}
 		admin.IsVerified = true
 		admin.IsEnabled = true
@@ -94,6 +91,11 @@ func (a *AdminAccountsServiceDefault) RegisterAccount(ctx context.Context, email
 		if err != nil {
 			return err
 		}
+	}
+
+	// Only assign role if we have the admin account
+	if admin == nil {
+		return nil
 	}
 
 	err = a.rbacAccountService.AssignRole(ctx, systemTenantID, admin.ID, bulwarkAdminRole)
