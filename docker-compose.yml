@@ -1,0 +1,34 @@
+services:
+  mongodb:
+    image: mongo:7
+    container_name: mongodb_test_container
+    ports:
+      - "27017:27017"
+    command: mongod --replSet rs0
+    healthcheck:
+      test: |
+        mongosh --eval "try { rs.status().ok } catch (e) { rs.initiate({ _id: 'rs0', members: [{ _id: 0, host: 'localhost:27017' }] }).ok }"
+      start_period: 0s
+      interval: 500ms
+      timeout: 5s
+      retries: 5
+
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: mailhog_test_container
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
+  bulwarkauth:
+    image: ghcr.io/latebit-io/bulwarkauth:latest
+    pull_policy: always
+    container_name: bulwarkauth_test_container
+    network_mode: "host"
+    env_file:
+      - bulwark.test.env
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      mailhog:
+        condition: service_started

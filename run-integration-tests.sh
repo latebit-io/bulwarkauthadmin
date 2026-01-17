@@ -63,6 +63,8 @@ export BULWARK_AUTH_URL=http://localhost:8080
 export DB_CONNECTION="mongodb://localhost:27017/?directConnection=true"
 export DB_NAME_SEED=test
 export PORT=8081
+export ADMIN_ACCOUNT=admin@test.example.com
+export ADMIN_ACCOUNT_PASSWORD=TestAdminPassword123!
 
 go build -o /tmp/bulwark-admin-service cmd/bulwarkauthadmin/main.go cmd/bulwarkauthadmin/config.go 2>&1
 if [ ! -f /tmp/bulwark-admin-service ]; then
@@ -96,6 +98,8 @@ echo -e "\n${YELLOW}6. Running integration tests...${NC}"
 export BULWARK_AUTH_URL=http://localhost:8080
 export BULWARK_ADMIN_URL=http://localhost:8081
 export MAILHOG_URL=http://localhost:8025
+export ADMIN_ACCOUNT=admin@test.example.com
+export ADMIN_ACCOUNT_PASSWORD=TestAdminPassword123!
 
 if go test -v -tags=integration ./tests/integration/...; then
     TEST_RESULT=0

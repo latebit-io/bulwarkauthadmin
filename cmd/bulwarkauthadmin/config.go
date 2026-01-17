@@ -21,8 +21,8 @@ type AppConfig struct {
 func NewAppConfig() (*AppConfig, error) {
 	config := &AppConfig{}
 	config.CORSEnabled = getEnvAsBool("CORS_ENABLED", false)
-	config.BulwarkAuthUrl = getEnv("BULWARK_AUTH_URL", "http://localhost:5173")
-	config.Port = getEnvAsInt("PORT", 8080)
+	config.BulwarkAuthUrl = getEnv("BULWARK_AUTH_URL", "http://localhost:8080")
+	config.Port = getEnvAsInt("PORT", 8081)
 	config.DbConnection = getEnv("DB_CONNECTION", "mongodb://localhost:27017/?connect=direct")
 	config.DbNameSeed = getEnv("DB_NAME_SEED", "")
 	config.AllowedOrigins = getEnvAsStringSlice("ALLOWED_WEB_ORIGINS", []string{"http://localhost:5173"})

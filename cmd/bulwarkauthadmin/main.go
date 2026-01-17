@@ -125,7 +125,6 @@ func main() {
 		err = adminAccountService.RegisterAccount(context.Background(), defaultAdminAccount, defaultAdminPassword)
 		if err != nil {
 			logger.Error("could configure default admin account", "error", err)
-			panic(err)
 		}
 	}
 
