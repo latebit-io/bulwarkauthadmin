@@ -14,6 +14,7 @@ import (
 
 type Role struct {
 	ID          string    `json:"id" bson:"id"`
+	TenantID    string    `json:"tenantId" bson:"tenantId"`
 	Name        string    `json:"name" bson:"name"`
 	Description string    `json:"description" bson:"description"`
 	Permissions []string  `json:"permissionIds" bson:"permissionIds"`
@@ -21,9 +22,10 @@ type Role struct {
 	Modified    time.Time `json:"modified" bson:"modified"`
 }
 
-func NewRole(name, description string) Role {
+func NewRole(tenantID, name, description string) Role {
 	return Role{
 		ID:          uuid.New().String(),
+		TenantID:    tenantID,
 		Name:        strings.TrimSpace(name),
 		Description: strings.TrimSpace(description),
 		Permissions: []string{},
@@ -51,6 +53,7 @@ func (r *Role) AddPermission(permissionName string) {
 
 type Permission struct {
 	ID       string    `json:"id" bson:"id"`
+	TenantID string    `json:"tenantId" bson:"tenantId"`
 	Key      string    `json:"key" bson:"key"`
 	Name     string    `json:"name" bson:"name"`
 	Action   string    `json:"action" bson:"action"`
@@ -58,11 +61,12 @@ type Permission struct {
 	Modified time.Time `json:"modified" bson:"modified"`
 }
 
-func NewPermission(name, action string) Permission {
+func NewPermission(tenantID, name, action string) Permission {
 	name = strings.TrimSpace(name)
 	action = strings.TrimSpace(action)
 	return Permission{
 		ID:       uuid.New().String(),
+		TenantID: tenantID,
 		Key:      fmt.Sprintf("%s:%s", name, action),
 		Name:     name,
 		Action:   action,
@@ -72,28 +76,28 @@ func NewPermission(name, action string) Permission {
 }
 
 type RolesRepository interface {
-	Create(ctx context.Context, role Role) error
-	Read(ctx context.Context, roleName string) (*Role, error)
-	ReadAll(ctx context.Context, paging shared.PageOptions) ([]Role, error)
-	Update(ctx context.Context, role Role) error
-	Delete(ctx context.Context, roleName string) error
+	Create(ctx context.Context, tenantID string, role Role) error
+	Read(ctx context.Context, tenantID string, roleName string) (*Role, error)
+	ReadAll(ctx context.Context, tenantID string, paging shared.PageOptions) ([]Role, error)
+	Update(ctx context.Context, tenantID string, role Role) error
+	Delete(ctx context.Context, tenantID string, roleName string) error
 }
 
 type PermissionsRepository interface {
-	Create(ctx context.Context, permission Permission) error
-	Read(ctx context.Context, key string) (*Permission, error)
-	ReadAll(ctx context.Context, paging shared.PageOptions) ([]Permission, error)
-	Delete(ctx context.Context, key string) error
+	Create(ctx context.Context, tenantID string, permission Permission) error
+	Read(ctx context.Context, tenantID string, key string) (*Permission, error)
+	ReadAll(ctx context.Context, tenantID string, paging shared.PageOptions) ([]Permission, error)
+	Delete(ctx context.Context, tenantID string, key string) error
 }
 
 type RoleService interface {
-	CreateRole(ctx context.Context, name, description string) error
-	UpdateRole(ctx context.Context, role, description string) error
-	GetRole(ctx context.Context, name string) (Role, error)
-	ListRoles(ctx context.Context, paging shared.PageOptions) ([]Role, error)
-	AddPermission(ctx context.Context, role, permissionKey string) error
-	RemovePermission(ctx context.Context, role, permissionKey string) error
-	DeleteRole(ctx context.Context, role string) error
+	CreateRole(ctx context.Context, tenantID string, name, description string) error
+	UpdateRole(ctx context.Context, tenantID string, role, description string) error
+	GetRole(ctx context.Context, tenantID string, name string) (Role, error)
+	ListRoles(ctx context.Context, tenantID string, paging shared.PageOptions) ([]Role, error)
+	AddPermission(ctx context.Context, tenantID string, role, permissionKey string) error
+	RemovePermission(ctx context.Context, tenantID string, role, permissionKey string) error
+	DeleteRole(ctx context.Context, tenantID string, role string) error
 }
 
 type RoleServiceDefault struct {
@@ -101,8 +105,8 @@ type RoleServiceDefault struct {
 }
 
 // GetRole implements RoleService.
-func (r *RoleServiceDefault) GetRole(ctx context.Context, name string) (Role, error) {
-	role, err := r.roleRepository.Read(ctx, name)
+func (r *RoleServiceDefault) GetRole(ctx context.Context, tenantID string, name string) (Role, error) {
+	role, err := r.roleRepository.Read(ctx, tenantID, name)
 	if err != nil {
 		return Role{}, err
 	}
@@ -110,8 +114,8 @@ func (r *RoleServiceDefault) GetRole(ctx context.Context, name string) (Role, er
 }
 
 // ListRoles implements RoleService.
-func (r *RoleServiceDefault) ListRoles(ctx context.Context, paging shared.PageOptions) ([]Role, error) {
-	roles, err := r.roleRepository.ReadAll(ctx, paging)
+func (r *RoleServiceDefault) ListRoles(ctx context.Context, tenantID string, paging shared.PageOptions) ([]Role, error) {
+	roles, err := r.roleRepository.ReadAll(ctx, tenantID, paging)
 	if err != nil {
 		return nil, err
 	}
@@ -119,54 +123,54 @@ func (r *RoleServiceDefault) ListRoles(ctx context.Context, paging shared.PageOp
 }
 
 // AddPermission implements RoleService.
-func (r *RoleServiceDefault) AddPermission(ctx context.Context, roleName string, permissionKey string) error {
-	role, err := r.roleRepository.Read(ctx, roleName)
+func (r *RoleServiceDefault) AddPermission(ctx context.Context, tenantID, roleName string, permissionKey string) error {
+	role, err := r.roleRepository.Read(ctx, tenantID, roleName)
 	if err != nil {
 		return err
 	}
 	role.AddPermission(permissionKey)
-	return r.roleRepository.Update(ctx, *role)
+	return r.roleRepository.Update(ctx, tenantID, *role)
 }
 
 // CreateRole implements RoleService.
-func (r *RoleServiceDefault) CreateRole(ctx context.Context, name string, description string) error {
-	if err := r.roleRepository.Create(ctx, NewRole(name, description)); err != nil {
+func (r *RoleServiceDefault) CreateRole(ctx context.Context, tenantID, name string, description string) error {
+	if err := r.roleRepository.Create(ctx, tenantID, NewRole(tenantID, name, description)); err != nil {
 		return err
 	}
 	return nil
 }
 
 // DeleteRole implements RoleService.
-func (r *RoleServiceDefault) DeleteRole(ctx context.Context, roleName string) error {
-	if err := r.roleRepository.Delete(ctx, roleName); err != nil {
+func (r *RoleServiceDefault) DeleteRole(ctx context.Context, tenantID, roleName string) error {
+	if err := r.roleRepository.Delete(ctx, tenantID, roleName); err != nil {
 		return err
 	}
 	return nil
 }
 
 // RemovePermission implements RoleService.
-func (r *RoleServiceDefault) RemovePermission(ctx context.Context, roleName string, permissionKey string) error {
-	role, err := r.roleRepository.Read(ctx, roleName)
+func (r *RoleServiceDefault) RemovePermission(ctx context.Context, tenantID, roleName string, permissionKey string) error {
+	role, err := r.roleRepository.Read(ctx, tenantID, roleName)
 	if err != nil {
 		return err
 	}
 
 	role.RemovePermission(permissionKey)
-	if err := r.roleRepository.Update(ctx, *role); err != nil {
+	if err := r.roleRepository.Update(ctx, tenantID, *role); err != nil {
 		return err
 	}
 	return nil
 }
 
 // UpdateRole implements RoleService.
-func (r *RoleServiceDefault) UpdateRole(ctx context.Context, roleName string, description string) error {
-	role, err := r.roleRepository.Read(ctx, roleName)
+func (r *RoleServiceDefault) UpdateRole(ctx context.Context, tenantID, roleName string, description string) error {
+	role, err := r.roleRepository.Read(ctx, tenantID, roleName)
 	if err != nil {
 		return err
 	}
 
 	role.Description = description
-	if err := r.roleRepository.Update(ctx, *role); err != nil {
+	if err := r.roleRepository.Update(ctx, tenantID, *role); err != nil {
 		return err
 	}
 	return nil
@@ -179,10 +183,10 @@ func NewRoleServiceDefault(roleRepository RolesRepository) RoleService {
 }
 
 type PermissionService interface {
-	CreatePermission(ctx context.Context, name string, action string) error
-	DeletePermission(ctx context.Context, name string, action string) error
-	ListPermissions(ctx context.Context, paging shared.PageOptions) ([]Permission, error)
-	DoesPermissionExist(ctx context.Context, permissionKey string) (bool, error)
+	CreatePermission(ctx context.Context, tenantID, name string, action string) error
+	DeletePermission(ctx context.Context, tenantID, name string, action string) error
+	ListPermissions(ctx context.Context, tenantID string, paging shared.PageOptions) ([]Permission, error)
+	DoesPermissionExist(ctx context.Context, tenantID, permissionKey string) (bool, error)
 }
 
 type PermissionServiceDefault struct {
@@ -190,25 +194,25 @@ type PermissionServiceDefault struct {
 }
 
 // CreatePermission implements PermissionService.
-func (p PermissionServiceDefault) CreatePermission(ctx context.Context, name string, action string) error {
-	newPermission := NewPermission(name, action)
-	if err := p.permissionRepository.Create(ctx, newPermission); err != nil {
+func (p PermissionServiceDefault) CreatePermission(ctx context.Context, tenantID, name string, action string) error {
+	newPermission := NewPermission(tenantID, name, action)
+	if err := p.permissionRepository.Create(ctx, tenantID, newPermission); err != nil {
 		return err
 	}
 	return nil
 }
 
 // DeletePermission implements PermissionService.
-func (p PermissionServiceDefault) DeletePermission(ctx context.Context, name string, action string) error {
-	if err := p.permissionRepository.Delete(ctx, fmt.Sprintf("%s:%s", name, action)); err != nil {
+func (p PermissionServiceDefault) DeletePermission(ctx context.Context, tenantID, name string, action string) error {
+	if err := p.permissionRepository.Delete(ctx, tenantID, fmt.Sprintf("%s:%s", name, action)); err != nil {
 		return err
 	}
 	return nil
 }
 
 // DoesPermissionExist implements PermissionService.
-func (p PermissionServiceDefault) DoesPermissionExist(ctx context.Context, permissionKey string) (bool, error) {
-	_, err := p.permissionRepository.Read(ctx, permissionKey)
+func (p PermissionServiceDefault) DoesPermissionExist(ctx context.Context, tenantID, permissionKey string) (bool, error) {
+	_, err := p.permissionRepository.Read(ctx, tenantID, permissionKey)
 	if err != nil {
 		var notFoundErr PermissionNotFoundError
 		if errors.As(err, &notFoundErr) {
@@ -220,8 +224,8 @@ func (p PermissionServiceDefault) DoesPermissionExist(ctx context.Context, permi
 }
 
 // ListPermission implements PermissionService.
-func (p PermissionServiceDefault) ListPermissions(ctx context.Context, paging shared.PageOptions) ([]Permission, error) {
-	permissions, err := p.permissionRepository.ReadAll(ctx, paging)
+func (p PermissionServiceDefault) ListPermissions(ctx context.Context, tenantID string, paging shared.PageOptions) ([]Permission, error) {
+	permissions, err := p.permissionRepository.ReadAll(ctx, tenantID, paging)
 	if err != nil {
 		return nil, err
 	}

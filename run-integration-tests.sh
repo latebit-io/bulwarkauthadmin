@@ -18,16 +18,16 @@ if ! command -v docker-compose &> /dev/null; then
     exit 1
 fi
 
-# Start MongoDB
-echo -e "\n${YELLOW}1. Starting MongoDB...${NC}"
+# Start all services (MongoDB, MailHog, BulwarkAuth)
+echo -e "\n${YELLOW}1. Starting test infrastructure (MongoDB, MailHog, BulwarkAuth)...${NC}"
 docker-compose -f docker-compose.test.yml up -d
 sleep 2
 
 # Wait for MongoDB to be ready
 echo -e "${YELLOW}2. Waiting for MongoDB to be ready...${NC}"
 for i in {1..60}; do
-    if docker-compose -f docker-compose.test.yml exec -T mongodb mongosh --eval "db.adminCommand('ping')" > /dev/null 2>&1; then
-        echo -e "${GREEN}MongoDB is ready!${NC}"
+    if docker-compose -f docker-compose.test.yml exec -T mongodb mongosh --eval "rs.status().ok" > /dev/null 2>&1; then
+        echo -e "${GREEN}MongoDB replica set is ready!${NC}"
         break
     fi
     if [ $i -eq 60 ]; then
@@ -39,26 +39,51 @@ for i in {1..60}; do
     sleep 1
 done
 
-# Build and start the service in background
-echo -e "\n${YELLOW}3. Building and starting BulwarkAuthAdmin service...${NC}"
-go build -o /tmp/bulwark-service cmd/bulwarkauthadmin/main.go cmd/bulwarkauthadmin/config.go 2>&1
-if [ ! -f /tmp/bulwark-service ]; then
+# Wait for BulwarkAuth to be ready
+echo -e "${YELLOW}3. Waiting for BulwarkAuth service to be ready...${NC}"
+for i in {1..60}; do
+    if curl -s http://localhost:8080/health > /dev/null 2>&1; then
+        echo -e "${GREEN}BulwarkAuth service is ready!${NC}"
+        break
+    fi
+    if [ $i -eq 60 ]; then
+        echo -e "${RED}BulwarkAuth service did not become ready in time${NC}"
+        docker-compose -f docker-compose.test.yml logs bulwarkauth
+        docker-compose -f docker-compose.test.yml down
+        exit 1
+    fi
+    sleep 1
+done
+
+# Build and start BulwarkAuthAdmin service in background
+echo -e "\n${YELLOW}4. Building and starting BulwarkAuthAdmin service...${NC}"
+
+# Set environment variables for BulwarkAuthAdmin
+export BULWARK_AUTH_URL=http://localhost:8080
+export DB_CONNECTION="mongodb://localhost:27017/?directConnection=true"
+export DB_NAME_SEED=
+export PORT=8081
+export ADMIN_ACCOUNT=admin@test.example.com
+export ADMIN_ACCOUNT_PASSWORD=TestAdminPassword123!
+
+go build -o /tmp/bulwark-admin-service cmd/bulwarkauthadmin/main.go cmd/bulwarkauthadmin/config.go 2>&1
+if [ ! -f /tmp/bulwark-admin-service ]; then
     echo -e "${RED}Failed to build service${NC}"
     docker-compose -f docker-compose.test.yml down
     exit 1
 fi
-/tmp/bulwark-service > /tmp/service.log 2>&1 &
+/tmp/bulwark-admin-service > /tmp/service.log 2>&1 &
 SERVICE_PID=$!
 
-# Wait for service to be ready
-echo -e "${YELLOW}4. Waiting for service to be ready...${NC}"
+# Wait for BulwarkAuthAdmin service to be ready
+echo -e "${YELLOW}5. Waiting for BulwarkAuthAdmin service to be ready...${NC}"
 for i in {1..60}; do
-    if curl -s http://localhost:8080/api/v1/accounts > /dev/null 2>&1; then
-        echo -e "${GREEN}Service is ready!${NC}"
+    if curl -s http://localhost:8081/health > /dev/null 2>&1; then
+        echo -e "${GREEN}BulwarkAuthAdmin service is ready!${NC}"
         break
     fi
     if [ $i -eq 60 ]; then
-        echo -e "${RED}Service did not become ready in time${NC}"
+        echo -e "${RED}BulwarkAuthAdmin service did not become ready in time${NC}"
         kill $SERVICE_PID 2>/dev/null || true
         docker-compose -f docker-compose.test.yml down
         echo -e "\n${YELLOW}Service logs:${NC}"
@@ -69,7 +94,14 @@ for i in {1..60}; do
 done
 
 # Run integration tests
-echo -e "\n${YELLOW}5. Running integration tests...${NC}"
+echo -e "\n${YELLOW}6. Running integration tests...${NC}"
+export BULWARK_AUTH_URL=http://localhost:8080
+export BULWARK_ADMIN_URL=http://localhost:8081
+export MAILHOG_URL=http://localhost:8025
+export DB_NAME_SEED=
+export ADMIN_ACCOUNT=admin@test.example.com
+export ADMIN_ACCOUNT_PASSWORD=TestAdminPassword123!
+
 if go test -v -tags=integration ./tests/integration/...; then
     TEST_RESULT=0
     echo -e "\n${GREEN}✓ Integration tests passed!${NC}"
@@ -79,7 +111,7 @@ else
 fi
 
 # Cleanup
-echo -e "\n${YELLOW}6. Cleaning up...${NC}"
+echo -e "\n${YELLOW}7. Cleaning up...${NC}"
 kill $SERVICE_PID 2>/dev/null || true
 docker-compose -f docker-compose.test.yml down
 

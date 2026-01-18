@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/google/uuid"
 	"github.com/joho/godotenv"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -16,17 +17,22 @@ import (
 	accountsapi "github.com/latebit-io/bulwarkauthadmin/api/accounts"
 	accountsrbacapi "github.com/latebit-io/bulwarkauthadmin/api/accounts/rbac"
 	"github.com/latebit-io/bulwarkauthadmin/api/health"
+	bulwarkauthmiddleware "github.com/latebit-io/bulwarkauthadmin/api/middleware"
 	rbacapi "github.com/latebit-io/bulwarkauthadmin/api/rbac"
+	tenantsapi "github.com/latebit-io/bulwarkauthadmin/api/tenants"
 	"github.com/latebit-io/bulwarkauthadmin/internal/accounts"
 	adminAccount "github.com/latebit-io/bulwarkauthadmin/internal/accounts/admin"
 	accountsRbac "github.com/latebit-io/bulwarkauthadmin/internal/accounts/rbac"
+	"github.com/latebit-io/bulwarkauthadmin/internal/email"
 	"github.com/latebit-io/bulwarkauthadmin/internal/rbac"
+	"github.com/latebit-io/bulwarkauthadmin/internal/tenants"
 	"github.com/latebit-io/bulwarkauthadmin/internal/version"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 func main() {
+	systemTenantID := uuid.Nil.String()
 	versionFlag := flag.Bool("version", false, "Print version information and exit")
 	flag.Parse()
 
@@ -65,26 +71,57 @@ func main() {
 			panic(err)
 		}
 	}()
-
+	httpClient := &http.Client{}
+	bulwarkGuard := bulwark.NewGuard(config.BulwarkAuthUrl, httpClient)
+	jwt := bulwarkauthmiddleware.NewJWTMiddleware(bulwarkGuard)
 	mongodb := client.Database("bulwarkauth" + config.DbNameSeed)
+	tenantRepository := tenants.NewMongoDbTenantRepository(mongodb)
+	err = tenantRepository.CreateSystem(context.Background())
+	if err != nil {
+		panic(err)
+	}
+	emailRepo := email.NewMongoDbEmailRepository(mongodb)
+	emailService := email.NewDefaultEmailService("", "",
+		"", "", config.Domain, config.EmailTemplatesDir, config.Domain, emailRepo, email.EmailOptions{
+			VerificationUrl: "",
+			ForgotUrl:       "",
+			MagicUrl:        "",
+			TestMode:        true,
+		})
+
+	err = emailService.CreateDefaultTemplates(context.Background(), systemTenantID)
+	if err != nil {
+		panic(err)
+	}
+
+	tenantService := tenants.NewDefaultTenantService(tenantRepository, emailService)
+	adminGroup := service.Group("/api/v1/admin")
+	adminGroup.Use(jwt.JwtForSystemRoutes) // Validate JWT with system tenant
+	adminGroup.Use(bulwarkauthmiddleware.RequireSystemAdmin)
+	tenantsHandler := tenantsapi.NewTenantHandler(tenantService) // Require bulwark_admin role
+	tenantsapi.TenantRoutesV1(adminGroup, tenantsHandler)
+
+	tenantMiddleware := bulwarkauthmiddleware.NewTenantMiddleware(tenantService)
+	tenantGroup := service.Group("/api/v1/tenant/:tenantid")
+	tenantGroup.Use(jwt.Jwt)
+	tenantGroup.Use(tenantMiddleware.ExtractAndAuthorizeTenant)
+
 	accountRepository := accounts.NewMongoDBAccountRepository(mongodb)
 	accountsManagmentService := accounts.NewAccountManagementServiceDefault(accountRepository)
 	accountsHandler := accountsapi.NewAccountHandler(accountsManagmentService)
-	accountsapi.AccountRoutesV1(service, accountsHandler)
+	accountsapi.AccountRoutesV1(tenantGroup, accountsHandler)
 
 	permissionsRepository := rbac.NewMongoDBPermissionsRepository(mongodb)
 	rolesRepository := rbac.NewMongoDBRolesRepository(mongodb)
 	roleService := rbac.NewRoleServiceDefault(rolesRepository)
 	permissionService := rbac.NewPermissionServiceDefault(permissionsRepository)
 	rbacHandler := rbacapi.NewRbacHandler(roleService, permissionService)
-	rbacapi.RbacRoutesV1(service, rbacHandler)
+	rbacapi.RbacRoutesV1(tenantGroup, rbacHandler)
 
 	accountsRBAC := accountsRbac.NewAccountRBACServiceDefault(accountRepository, permissionService, roleService)
 	accountsRbacHandler := accountsrbacapi.NewAccountRBACHandler(accountsRBAC)
-	accountsrbacapi.AccountRBACRoutesV1(service, accountsRbacHandler)
+	accountsrbacapi.AccountRBACRoutesV1(tenantGroup, accountsRbacHandler)
 
-	httpClient := &http.Client{}
-	bulwarkGuard := bulwark.NewGuard(config.BulwarkAuthUrl, httpClient)
 	adminAccountService := adminAccount.NewAdminAccountsServiceDefault(
 		accountRepository,
 		rolesRepository,
@@ -104,7 +141,6 @@ func main() {
 		err = adminAccountService.RegisterAccount(context.Background(), defaultAdminAccount, defaultAdminPassword)
 		if err != nil {
 			logger.Error("could configure default admin account", "error", err)
-			panic(err)
 		}
 	}
 

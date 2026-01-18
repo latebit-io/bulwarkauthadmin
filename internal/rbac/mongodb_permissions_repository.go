@@ -20,10 +20,10 @@ type MongoDBPermissionsRepository struct {
 }
 
 // Read implements PermissionsRepository.
-func (m *MongoDBPermissionsRepository) Read(ctx context.Context, key string) (*Permission, error) {
+func (m *MongoDBPermissionsRepository) Read(ctx context.Context, tenantID, key string) (*Permission, error) {
 	key = strings.TrimSpace(key)
 	collection := m.db.Collection(m.collectionName)
-	filter := bson.M{"key": key}
+	filter := bson.M{"tenantId": tenantID, "key": key}
 	var permission Permission
 	err := collection.FindOne(ctx, filter).Decode(&permission)
 	if err != nil {
@@ -36,7 +36,8 @@ func (m *MongoDBPermissionsRepository) Read(ctx context.Context, key string) (*P
 }
 
 // Create implements PermissionsRepository.
-func (m *MongoDBPermissionsRepository) Create(ctx context.Context, permission Permission) error {
+func (m *MongoDBPermissionsRepository) Create(ctx context.Context, tenantID string, permission Permission) error {
+	permission.TenantID = tenantID
 	collection := m.db.Collection(m.collectionName)
 	_, err := collection.InsertOne(ctx, permission)
 	if err != nil {
@@ -51,10 +52,10 @@ func (m *MongoDBPermissionsRepository) Create(ctx context.Context, permission Pe
 }
 
 // Delete implements PermissionsRepository.
-func (m *MongoDBPermissionsRepository) Delete(ctx context.Context, key string) error {
+func (m *MongoDBPermissionsRepository) Delete(ctx context.Context, tenantID, key string) error {
 	key = strings.TrimSpace(key)
 	collection := m.db.Collection(m.collectionName)
-	filter := bson.M{"key": key}
+	filter := bson.M{"tenantId": tenantID, "key": key}
 	result, err := collection.DeleteOne(ctx, filter)
 	if err != nil {
 		return err
@@ -66,9 +67,9 @@ func (m *MongoDBPermissionsRepository) Delete(ctx context.Context, key string) e
 }
 
 // ReadAll implements PermissionsRepository.
-func (m *MongoDBPermissionsRepository) ReadAll(ctx context.Context, paging shared.PageOptions) ([]Permission, error) {
+func (m *MongoDBPermissionsRepository) ReadAll(ctx context.Context, tenantID string, paging shared.PageOptions) ([]Permission, error) {
 	collection := m.db.Collection(m.collectionName)
-	filter := bson.M{}
+	filter := bson.M{"tenantId": tenantID}
 	opts := options.Find().SetSkip(int64(paging.Page())).SetLimit(int64(paging.Size()))
 	cursor, err := collection.Find(ctx, filter, opts)
 	if err != nil {
@@ -102,7 +103,7 @@ func NewMongoDBPermissionsRepository(db *mongo.Database) PermissionsRepository {
 	defer cancel()
 
 	indexModel := mongo.IndexModel{
-		Keys:    bson.D{{Key: "key", Value: 1}},
+		Keys:    bson.D{{Key: "tenantId", Value: 1}, {Key: "key", Value: 1}},
 		Options: options.Index().SetUnique(true),
 	}
 

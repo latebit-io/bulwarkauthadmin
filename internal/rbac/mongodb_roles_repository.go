@@ -20,9 +20,9 @@ type MongoDBRolesRepository struct {
 }
 
 // ReadAll implements RolesRepository.
-func (m *MongoDBRolesRepository) ReadAll(ctx context.Context, paging shared.PageOptions) ([]Role, error) {
+func (m *MongoDBRolesRepository) ReadAll(ctx context.Context, tenantID string, paging shared.PageOptions) ([]Role, error) {
 	collection := m.db.Collection(m.collectionName)
-	filter := bson.M{}
+	filter := bson.M{"tenantId": tenantID}
 	opts := options.Find().SetSkip(int64(paging.Page())).SetLimit(int64(paging.Size()))
 	cursor, err := collection.Find(ctx, filter, opts)
 	if err != nil {
@@ -47,7 +47,8 @@ func (m *MongoDBRolesRepository) ReadAll(ctx context.Context, paging shared.Page
 }
 
 // Create implements RolesRepository.
-func (m *MongoDBRolesRepository) Create(ctx context.Context, role Role) error {
+func (m *MongoDBRolesRepository) Create(ctx context.Context, tenantID string, role Role) error {
+	role.TenantID = tenantID
 	collection := m.db.Collection(m.collectionName)
 	_, err := collection.InsertOne(ctx, role)
 
@@ -64,10 +65,10 @@ func (m *MongoDBRolesRepository) Create(ctx context.Context, role Role) error {
 }
 
 // Delete implements RolesRepository.
-func (m *MongoDBRolesRepository) Delete(ctx context.Context, roleName string) error {
+func (m *MongoDBRolesRepository) Delete(ctx context.Context, tenantID, roleName string) error {
 	roleName = strings.TrimSpace(roleName)
 	collection := m.db.Collection(m.collectionName)
-	filter := bson.M{"name": roleName}
+	filter := bson.M{"tenantId": tenantID, "name": roleName}
 	result, err := collection.DeleteOne(ctx, filter)
 	if err != nil {
 		return err
@@ -79,10 +80,10 @@ func (m *MongoDBRolesRepository) Delete(ctx context.Context, roleName string) er
 }
 
 // Read implements RolesRepository.
-func (m *MongoDBRolesRepository) Read(ctx context.Context, roleName string) (*Role, error) {
+func (m *MongoDBRolesRepository) Read(ctx context.Context, tenantID, roleName string) (*Role, error) {
 	roleName = strings.TrimSpace(roleName)
 	collection := m.db.Collection(m.collectionName)
-	filter := bson.M{"name": roleName}
+	filter := bson.M{"tenantId": tenantID, "name": roleName}
 	var role Role
 	err := collection.FindOne(ctx, filter).Decode(&role)
 	if err != nil {
@@ -95,10 +96,11 @@ func (m *MongoDBRolesRepository) Read(ctx context.Context, roleName string) (*Ro
 }
 
 // Update implements RolesRepository.
-func (m *MongoDBRolesRepository) Update(ctx context.Context, role Role) error {
+func (m *MongoDBRolesRepository) Update(ctx context.Context, tenantID string, role Role) error {
+	role.TenantID = tenantID
 	collection := m.db.Collection(m.collectionName)
 	role.Modified = time.Now()
-	filter := bson.M{"name": role.Name}
+	filter := bson.M{"tenantId": tenantID, "name": role.Name}
 	update := bson.M{"$set": role}
 	_, err := collection.UpdateOne(ctx, filter, update)
 	if err != nil {
@@ -119,7 +121,7 @@ func NewMongoDBRolesRepository(db *mongo.Database) RolesRepository {
 	defer cancel()
 
 	indexModel := mongo.IndexModel{
-		Keys:    bson.D{{Key: "name", Value: 1}},
+		Keys:    bson.D{{Key: "tenantId", Value: 1}, {Key: "name", Value: 1}},
 		Options: options.Index().SetUnique(true),
 	}
 

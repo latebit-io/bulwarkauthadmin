@@ -23,7 +23,7 @@ type MongoDBAccountRepository struct {
 func NewMongoDBAccountRepository(db *mongo.Database) AccountRepository {
 	collection := db.Collection(accountCollection)
 	_, err := collection.Indexes().CreateOne(context.Background(), mongo.IndexModel{
-		Keys:    bson.D{{Key: "email", Value: 1}},
+		Keys:    bson.D{{Key: "tenantId", Value: 1}, {Key: "email", Value: 1}},
 		Options: options.Index().SetUnique(true),
 	})
 	if err != nil {
@@ -35,10 +35,10 @@ func NewMongoDBAccountRepository(db *mongo.Database) AccountRepository {
 }
 
 // ReadById implements AccountRepository.
-func (m *MongoDBAccountRepository) ReadById(ctx context.Context, id string) (*Account, error) {
+func (m *MongoDBAccountRepository) ReadById(ctx context.Context, tenantId, id string) (*Account, error) {
 	id = strings.TrimSpace(id)
 	collection := m.db.Collection(accountCollection)
-	result := collection.FindOne(ctx, bson.D{{Key: "id", Value: id}})
+	result := collection.FindOne(ctx, bson.M{"tenantId": tenantId, "id": id})
 	var account Account
 	err := result.Decode(&account)
 	if err != nil {
@@ -53,6 +53,11 @@ func (m *MongoDBAccountRepository) ReadById(ctx context.Context, id string) (*Ac
 // Create implements AccountRepository.
 func (m *MongoDBAccountRepository) Create(ctx context.Context, accountModel Account) error {
 	var errorMessages []string
+
+	if accountModel.TenantID == "" {
+		errorMessages = append(errorMessages, "tenantID is required")
+	}
+
 	if accountModel.Email == "" {
 		errorMessages = append(errorMessages, "email is required")
 	}
@@ -76,13 +81,14 @@ func (m *MongoDBAccountRepository) Create(ctx context.Context, accountModel Acco
 	_, err = collection.InsertOne(ctx,
 		bson.D{
 			{Key: "id", Value: uuid.New().String()},
+			{Key: "tenantId", Value: accountModel.TenantID},
 			{Key: "email", Value: accountModel.Email},
 			{Key: "password", Value: unusablePassword.String()},
 			{Key: "roles", Value: accountModel.Roles},
 			{Key: "permissions", Value: accountModel.Permissions},
 			{Key: "isVerified", Value: accountModel.IsVerified},
 			{Key: "verificationToken", Value: verificationToken.String()},
-			{Key: "isEnabled", Value: false},
+			{Key: "isEnabled", Value: accountModel.IsEnabled},
 			{Key: "isDeleted", Value: false},
 			{Key: "created", Value: time.Now()},
 			{Key: "modified", Value: time.Now()},
@@ -101,26 +107,26 @@ func (m *MongoDBAccountRepository) Create(ctx context.Context, accountModel Acco
 }
 
 // Delete implements AccountRepository.
-func (m *MongoDBAccountRepository) Delete(ctx context.Context, accountId string) error {
-	accountId = strings.TrimSpace(accountId)
+func (m *MongoDBAccountRepository) Delete(ctx context.Context, tenantID, accountID string) error {
+	accountID = strings.TrimSpace(accountID)
 	collection := m.db.Collection(accountCollection)
-	result, err := collection.DeleteOne(ctx, bson.D{{Key: "id", Value: accountId}})
+	result, err := collection.DeleteOne(ctx, bson.D{{Key: "tenantId", Value: tenantID}, {Key: "id", Value: accountID}})
 	if err != nil {
 		return err
 	}
 
 	if result.DeletedCount == 0 {
-		return AccountNotFoundError{Value: accountId}
+		return AccountNotFoundError{Value: accountID}
 	}
 
 	return nil
 }
 
 // ReadAll implements AccountRepository.
-func (m *MongoDBAccountRepository) ReadAll(ctx context.Context, options shared.PageOptions) ([]Account, error) {
+func (m *MongoDBAccountRepository) ReadAll(ctx context.Context, tenantID string, options shared.PageOptions) ([]Account, error) {
 	collection := m.db.Collection(accountCollection)
 	var accounts []Account
-	cursor, err := collection.Find(ctx, bson.D{})
+	cursor, err := collection.Find(ctx, bson.D{{Key: "tenantId", Value: tenantID}})
 	if err != nil {
 		return accounts, err
 	}
@@ -140,10 +146,10 @@ func (m *MongoDBAccountRepository) ReadAll(ctx context.Context, options shared.P
 }
 
 // ReadByEmail implements AccountRepository.
-func (m *MongoDBAccountRepository) ReadByEmail(ctx context.Context, email string) (*Account, error) {
+func (m *MongoDBAccountRepository) ReadByEmail(ctx context.Context, tenantID, email string) (*Account, error) {
 	email = strings.TrimSpace(email)
 	collection := m.db.Collection(accountCollection)
-	result := collection.FindOne(ctx, bson.D{{Key: "email", Value: email}})
+	result := collection.FindOne(ctx, bson.D{{Key: "tenantId", Value: tenantID}, {Key: "email", Value: email}})
 	var account Account
 	err := result.Decode(&account)
 	if err != nil {
@@ -156,11 +162,11 @@ func (m *MongoDBAccountRepository) ReadByEmail(ctx context.Context, email string
 }
 
 // Update implements AccountRepository.
-func (m *MongoDBAccountRepository) Update(ctx context.Context, account Account) error {
+func (m *MongoDBAccountRepository) Update(ctx context.Context, tenantID string, account Account) error {
 	collection := m.db.Collection(accountCollection)
-	result, err := collection.UpdateOne(ctx, bson.D{{Key: "id", Value: account.ID}}, bson.D{{Key: "$set",
+	result, err := collection.UpdateOne(ctx, bson.D{{Key: "tenantId", Value: tenantID}, {Key: "id", Value: account.ID}}, bson.D{{Key: "$set",
 		Value: bson.D{{Key: "email", Value: account.Email}, {Key: "isDeleted", Value: account.IsDeleted},
-			{Key: "isEnabled", Value: account.IsEnabled}, {Key: "socialProviders", Value: account.SocialProviders}, {Key: "roles", Value: account.Roles},
+			{Key: "isEnabled", Value: account.IsEnabled}, {Key: "isVerified", Value: account.IsVerified}, {Key: "socialProviders", Value: account.SocialProviders}, {Key: "roles", Value: account.Roles},
 			{Key: "permissions", Value: account.Permissions}, {Key: "modified", Value: time.Now()}}}})
 	if err != nil {
 		return err

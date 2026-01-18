@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/labstack/echo/v4"
+	"github.com/latebit-io/bulwarkauthadmin/api/middleware"
 	"github.com/latebit-io/bulwarkauthadmin/api/problem"
 	"github.com/latebit-io/bulwarkauthadmin/internal/accounts"
 )
@@ -45,6 +46,7 @@ func NewAccountHandler(service accounts.AccountManagementService) *AccountHandle
 
 // RegisterAccount handles the creation of a new account based on the provided email and password in the request payload.
 func (ah AccountHandler) RegisterAccount(c echo.Context) error {
+	tenantID := middleware.GetTenantIDFromEcho(c)
 	newAccountRequest := new(NewAccountRequest)
 	err := c.Bind(newAccountRequest)
 	if err != nil {
@@ -53,7 +55,7 @@ func (ah AccountHandler) RegisterAccount(c echo.Context) error {
 	}
 
 	ctx := c.Request().Context()
-	err = ah.accounts.RegisterAccount(ctx, newAccountRequest.Email, accounts.AccountOptions{
+	err = ah.accounts.RegisterAccount(ctx, tenantID, newAccountRequest.Email, accounts.AccountOptions{
 		IsVerified: true,
 	})
 	if err != nil {
@@ -76,9 +78,10 @@ func (ah AccountHandler) RegisterAccount(c echo.Context) error {
 }
 
 func (ah AccountHandler) GetAccount(c echo.Context) error {
+	tenantID := middleware.GetTenantIDFromEcho(c)
 	id := c.Param("id")
 	ctx := c.Request().Context()
-	account, err := ah.accounts.GetAccountDetails(ctx, id)
+	account, err := ah.accounts.GetAccountDetails(ctx, tenantID, id)
 	if err != nil {
 		httpError := problem.NewBadRequest(err)
 		return echo.NewHTTPError(httpError.Status, httpError)
@@ -88,6 +91,7 @@ func (ah AccountHandler) GetAccount(c echo.Context) error {
 }
 
 func (ah AccountHandler) ChangeAccountEmail(c echo.Context) error {
+	tenantID := middleware.GetTenantIDFromEcho(c)
 	changeEmailRequest := new(ChangeEmailRequest)
 	err := c.Bind(changeEmailRequest)
 	if err != nil {
@@ -96,7 +100,7 @@ func (ah AccountHandler) ChangeAccountEmail(c echo.Context) error {
 	}
 
 	ctx := c.Request().Context()
-	err = ah.accounts.ChangeAccountEmail(ctx, changeEmailRequest.AccountID,
+	err = ah.accounts.ChangeAccountEmail(ctx, tenantID, changeEmailRequest.AccountID,
 		changeEmailRequest.Email, accounts.AccountOptions{
 			IsVerified: true,
 		})
@@ -120,6 +124,7 @@ func (ah AccountHandler) ChangeAccountEmail(c echo.Context) error {
 }
 
 func (ah *AccountHandler) ListAccounts(c echo.Context) error {
+	tenantID := middleware.GetTenantIDFromEcho(c)
 	accountsFilter := new(accounts.AccountFilter)
 	err := c.Bind(accountsFilter)
 	if err != nil {
@@ -128,7 +133,7 @@ func (ah *AccountHandler) ListAccounts(c echo.Context) error {
 	}
 
 	ctx := c.Request().Context()
-	accounts, err := ah.accounts.ListAccounts(ctx, *accountsFilter)
+	accounts, err := ah.accounts.ListAccounts(ctx, tenantID, *accountsFilter)
 	if err != nil {
 		httpError := problem.NewServerError(err)
 		return echo.NewHTTPError(httpError.Status, httpError)
@@ -138,6 +143,7 @@ func (ah *AccountHandler) ListAccounts(c echo.Context) error {
 }
 
 func (ah *AccountHandler) DisableAccount(c echo.Context) error {
+	tenantID := middleware.GetTenantIDFromEcho(c)
 	disableAccountRequest := new(DisableAccountRequest)
 	err := c.Bind(disableAccountRequest)
 	if err != nil {
@@ -145,7 +151,7 @@ func (ah *AccountHandler) DisableAccount(c echo.Context) error {
 		return echo.NewHTTPError(httpError.Status, httpError)
 	}
 	ctx := c.Request().Context()
-	err = ah.accounts.DisableAccount(ctx, disableAccountRequest.AccountID)
+	err = ah.accounts.DisableAccount(ctx, tenantID, disableAccountRequest.AccountID)
 	if err != nil {
 		httpError := problem.NewServerError(err)
 		return echo.NewHTTPError(httpError.Status, httpError)
@@ -155,6 +161,7 @@ func (ah *AccountHandler) DisableAccount(c echo.Context) error {
 }
 
 func (ah *AccountHandler) EnableAccount(c echo.Context) error {
+	tenantID := middleware.GetTenantIDFromEcho(c)
 	enableAccountRequest := new(EnableAccountRequest)
 	err := c.Bind(enableAccountRequest)
 	if err != nil {
@@ -162,7 +169,7 @@ func (ah *AccountHandler) EnableAccount(c echo.Context) error {
 		return echo.NewHTTPError(httpError.Status, httpError)
 	}
 	ctx := c.Request().Context()
-	err = ah.accounts.EnableAccount(ctx, enableAccountRequest.AccountID)
+	err = ah.accounts.EnableAccount(ctx, tenantID, enableAccountRequest.AccountID)
 	if err != nil {
 		httpError := problem.NewServerError(err)
 		return echo.NewHTTPError(httpError.Status, httpError)
@@ -172,6 +179,7 @@ func (ah *AccountHandler) EnableAccount(c echo.Context) error {
 }
 
 func (ah *AccountHandler) DeactivateAccount(c echo.Context) error {
+	tenantID := middleware.GetTenantIDFromEcho(c)
 	deactivateAccountRequest := new(DeactivateAccountRequest)
 	err := c.Bind(deactivateAccountRequest)
 	if err != nil {
@@ -179,7 +187,7 @@ func (ah *AccountHandler) DeactivateAccount(c echo.Context) error {
 		return echo.NewHTTPError(httpError.Status, httpError)
 	}
 	ctx := c.Request().Context()
-	err = ah.accounts.DeactivateAccount(ctx, deactivateAccountRequest.AccountID)
+	err = ah.accounts.DeactivateAccount(ctx, tenantID, deactivateAccountRequest.AccountID)
 	if err != nil {
 		httpError := problem.NewServerError(err)
 		return echo.NewHTTPError(httpError.Status, httpError)
@@ -189,6 +197,7 @@ func (ah *AccountHandler) DeactivateAccount(c echo.Context) error {
 }
 
 func (ah *AccountHandler) PurgeAccount(c echo.Context) error {
+	tenantID := middleware.GetTenantIDFromEcho(c)
 	deactivateAccountRequest := new(DeactivateAccountRequest)
 	err := c.Bind(deactivateAccountRequest)
 	if err != nil {
@@ -196,7 +205,7 @@ func (ah *AccountHandler) PurgeAccount(c echo.Context) error {
 		return echo.NewHTTPError(httpError.Status, httpError)
 	}
 	ctx := c.Request().Context()
-	err = ah.accounts.PurgeAccount(ctx, deactivateAccountRequest.AccountID)
+	err = ah.accounts.PurgeAccount(ctx, tenantID, deactivateAccountRequest.AccountID)
 	if err != nil {
 		httpError := problem.NewServerError(err)
 		return echo.NewHTTPError(httpError.Status, httpError)
@@ -206,6 +215,7 @@ func (ah *AccountHandler) PurgeAccount(c echo.Context) error {
 }
 
 func (ah *AccountHandler) UnlinkSocial(c echo.Context) error {
+	tenantID := middleware.GetTenantIDFromEcho(c)
 	unlinkRequest := new(UnlinkSocialRequest)
 	err := c.Bind(unlinkRequest)
 	if err != nil {
@@ -213,7 +223,7 @@ func (ah *AccountHandler) UnlinkSocial(c echo.Context) error {
 		return echo.NewHTTPError(httpError.Status, httpError)
 	}
 	ctx := c.Request().Context()
-	err = ah.accounts.UnlinkSocialProvider(ctx, unlinkRequest.AccountID, unlinkRequest.Provider)
+	err = ah.accounts.UnlinkSocialProvider(ctx, tenantID, unlinkRequest.AccountID, unlinkRequest.Provider)
 	if err != nil {
 		var socialProviderNotFound accounts.SocialProviderNotFoundError
 		notFound := errors.As(err, &socialProviderNotFound)

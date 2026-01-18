@@ -1,10 +1,10 @@
+//go:build integration
+
 package accounts
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"testing"
 	"time"
@@ -16,77 +16,71 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	// Wait for service to be available
 	integration.TestMain(m)
 }
 
 func TestAccountHandler_RegisterAccount(t *testing.T) {
-	integration.WaitForService(t, 20)
+	tc := integration.NewTestContext(t)
 
-	baseURL := integration.GetBaseURL()
 	email := fmt.Sprintf("user%d@example.com", time.Now().UnixNano())
 	payload := accounts.NewAccountRequest{Email: email}
-	body, _ := json.Marshal(payload)
 
 	// Register account
-	resp, err := http.Post(
-		baseURL+"/api/v1/accounts",
-		"application/json",
-		bytes.NewReader(body),
-	)
+	resp, err := tc.Post("/accounts", payload)
 	require.NoError(t, err)
+	defer resp.Body.Close()
 	assert.Equal(t, http.StatusCreated, resp.StatusCode)
-	resp.Body.Close()
 
 	// Try registering same email - should fail with conflict
-	resp, err = http.Post(
-		baseURL+"/api/v1/accounts",
-		"application/json",
-		bytes.NewReader(body),
-	)
+	resp, err = tc.Post("/accounts", payload)
 	require.NoError(t, err)
+	defer resp.Body.Close()
 	assert.Equal(t, http.StatusConflict, resp.StatusCode)
-	resp.Body.Close()
 }
 
 func TestAccountHandler_ListAccounts(t *testing.T) {
-	integration.WaitForService(t, 20)
+	tc := integration.NewTestContext(t)
 
-	baseURL := integration.GetBaseURL()
+	// Create an account first to ensure we have data
+	email := fmt.Sprintf("listtest%d@example.com", time.Now().UnixNano())
+	payload := accounts.NewAccountRequest{Email: email}
+	resp, err := tc.Post("/accounts", payload)
+	require.NoError(t, err)
+	resp.Body.Close()
 
 	// List accounts
-	resp, err := http.Get(baseURL + "/api/v1/accounts")
+	resp, err = tc.Get("/accounts")
 	require.NoError(t, err)
+	defer resp.Body.Close()
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
 	var accs []map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&accs)
-	resp.Body.Close()
+	err = json.NewDecoder(resp.Body).Decode(&accs)
+	require.NoError(t, err)
 
-	// Should have at least some accounts (from other tests)
+	// Should have at least one account
 	assert.Greater(t, len(accs), 0)
 }
 
 func TestAccountHandler_GetAccount(t *testing.T) {
-	integration.WaitForService(t, 20)
-
-	baseURL := integration.GetBaseURL()
+	tc := integration.NewTestContext(t)
 
 	// Create an account
 	email := fmt.Sprintf("gettest%d@example.com", time.Now().UnixNano())
 	payload := accounts.NewAccountRequest{Email: email}
-	body, _ := json.Marshal(payload)
 
-	resp, _ := http.Post(baseURL+"/api/v1/accounts", "application/json", bytes.NewReader(body))
+	resp, err := tc.Post("/accounts", payload)
+	require.NoError(t, err)
 	resp.Body.Close()
 
 	// Get all accounts and find ours
-	resp, _ = http.Get(baseURL + "/api/v1/accounts")
-	respBody, _ := io.ReadAll(resp.Body)
-	resp.Body.Close()
+	resp, err = tc.Get("/accounts")
+	require.NoError(t, err)
 
 	var accs []map[string]interface{}
-	json.Unmarshal(respBody, &accs)
+	err = json.NewDecoder(resp.Body).Decode(&accs)
+	require.NoError(t, err)
+	resp.Body.Close()
 
 	// Find our account by email
 	var accountID string
@@ -99,38 +93,36 @@ func TestAccountHandler_GetAccount(t *testing.T) {
 	require.NotEmpty(t, accountID, "Account not found in list")
 
 	// Get the specific account
-	resp, err := http.Get(baseURL + "/api/v1/accounts/" + accountID)
+	resp, err = tc.Get("/accounts/" + accountID)
 	require.NoError(t, err)
+	defer resp.Body.Close()
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
 	var account map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&account)
-	resp.Body.Close()
+	err = json.NewDecoder(resp.Body).Decode(&account)
+	require.NoError(t, err)
 
-	// Verify account details (note: single account endpoint returns lowercase fields)
 	assert.Equal(t, email, account["email"])
 }
 
 func TestAccountHandler_ChangeEmail(t *testing.T) {
-	integration.WaitForService(t, 20)
-
-	baseURL := integration.GetBaseURL()
+	tc := integration.NewTestContext(t)
 
 	// Create an account
 	email := fmt.Sprintf("changeemail%d@example.com", time.Now().UnixNano())
 	payload := accounts.NewAccountRequest{Email: email}
-	body, _ := json.Marshal(payload)
 
-	resp, _ := http.Post(baseURL+"/api/v1/accounts", "application/json", bytes.NewReader(body))
+	resp, err := tc.Post("/accounts", payload)
+	require.NoError(t, err)
 	resp.Body.Close()
 
 	// Get account ID
-	resp, _ = http.Get(baseURL + "/api/v1/accounts")
-	respBody, _ := io.ReadAll(resp.Body)
-	resp.Body.Close()
+	resp, err = tc.Get("/accounts")
+	require.NoError(t, err)
 
 	var accs []map[string]interface{}
-	json.Unmarshal(respBody, &accs)
+	json.NewDecoder(resp.Body).Decode(&accs)
+	resp.Body.Close()
 
 	var accountID string
 	for _, acc := range accs {
@@ -147,18 +139,16 @@ func TestAccountHandler_ChangeEmail(t *testing.T) {
 		AccountID: accountID,
 		Email:     newEmail,
 	}
-	changeBody, _ := json.Marshal(changePayload)
 
-	req, _ := http.NewRequest(http.MethodPut, baseURL+"/api/v1/accounts/email", bytes.NewReader(changeBody))
-	req.Header.Set("Content-Type", "application/json")
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	resp, err = tc.Put("/accounts/email", changePayload)
 	require.NoError(t, err)
+	defer resp.Body.Close()
 	assert.Equal(t, http.StatusNoContent, resp.StatusCode)
-	resp.Body.Close()
 
 	// Verify email changed by getting the account
-	resp, _ = http.Get(baseURL + "/api/v1/accounts/" + accountID)
+	resp, err = tc.Get("/accounts/" + accountID)
+	require.NoError(t, err)
+
 	var account map[string]interface{}
 	json.NewDecoder(resp.Body).Decode(&account)
 	resp.Body.Close()
@@ -167,25 +157,23 @@ func TestAccountHandler_ChangeEmail(t *testing.T) {
 }
 
 func TestAccountHandler_DeactivateAccount(t *testing.T) {
-	integration.WaitForService(t, 20)
-
-	baseURL := integration.GetBaseURL()
+	tc := integration.NewTestContext(t)
 
 	// Create an account
 	email := fmt.Sprintf("deactivate%d@example.com", time.Now().UnixNano())
 	payload := accounts.NewAccountRequest{Email: email}
-	body, _ := json.Marshal(payload)
 
-	resp, _ := http.Post(baseURL+"/api/v1/accounts", "application/json", bytes.NewReader(body))
+	resp, err := tc.Post("/accounts", payload)
+	require.NoError(t, err)
 	resp.Body.Close()
 
 	// Get account ID
-	resp, _ = http.Get(baseURL + "/api/v1/accounts")
-	respBody, _ := io.ReadAll(resp.Body)
-	resp.Body.Close()
+	resp, err = tc.Get("/accounts")
+	require.NoError(t, err)
 
 	var accs []map[string]interface{}
-	json.Unmarshal(respBody, &accs)
+	json.NewDecoder(resp.Body).Decode(&accs)
+	resp.Body.Close()
 
 	var accountID string
 	for _, acc := range accs {
@@ -198,18 +186,16 @@ func TestAccountHandler_DeactivateAccount(t *testing.T) {
 
 	// Deactivate account
 	deactivatePayload := accounts.DeactivateAccountRequest{AccountID: accountID}
-	deactivateBody, _ := json.Marshal(deactivatePayload)
 
-	req, _ := http.NewRequest(http.MethodPut, baseURL+"/api/v1/accounts/deactivate", bytes.NewReader(deactivateBody))
-	req.Header.Set("Content-Type", "application/json")
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	resp, err = tc.Put("/accounts/deactivate", deactivatePayload)
 	require.NoError(t, err)
+	defer resp.Body.Close()
 	assert.Equal(t, http.StatusNoContent, resp.StatusCode)
-	resp.Body.Close()
 
 	// Verify isDeleted flag
-	resp, _ = http.Get(baseURL + "/api/v1/accounts/" + accountID)
+	resp, err = tc.Get("/accounts/" + accountID)
+	require.NoError(t, err)
+
 	var account map[string]interface{}
 	json.NewDecoder(resp.Body).Decode(&account)
 	resp.Body.Close()
@@ -218,25 +204,23 @@ func TestAccountHandler_DeactivateAccount(t *testing.T) {
 }
 
 func TestAccountHandler_DisableAccount(t *testing.T) {
-	integration.WaitForService(t, 20)
-
-	baseURL := integration.GetBaseURL()
+	tc := integration.NewTestContext(t)
 
 	// Create an account
 	email := fmt.Sprintf("disable%d@example.com", time.Now().UnixNano())
 	payload := accounts.NewAccountRequest{Email: email}
-	body, _ := json.Marshal(payload)
 
-	resp, _ := http.Post(baseURL+"/api/v1/accounts", "application/json", bytes.NewReader(body))
+	resp, err := tc.Post("/accounts", payload)
+	require.NoError(t, err)
 	resp.Body.Close()
 
 	// Get account ID
-	resp, _ = http.Get(baseURL + "/api/v1/accounts")
-	respBody, _ := io.ReadAll(resp.Body)
-	resp.Body.Close()
+	resp, err = tc.Get("/accounts")
+	require.NoError(t, err)
 
 	var accs []map[string]interface{}
-	json.Unmarshal(respBody, &accs)
+	json.NewDecoder(resp.Body).Decode(&accs)
+	resp.Body.Close()
 
 	var accountID string
 	for _, acc := range accs {
@@ -249,37 +233,31 @@ func TestAccountHandler_DisableAccount(t *testing.T) {
 
 	// Disable account
 	disablePayload := accounts.DisableAccountRequest{AccountID: accountID}
-	disableBody, _ := json.Marshal(disablePayload)
 
-	req, _ := http.NewRequest(http.MethodPut, baseURL+"/api/v1/accounts/disable", bytes.NewReader(disableBody))
-	req.Header.Set("Content-Type", "application/json")
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	resp, err = tc.Put("/accounts/disable", disablePayload)
 	require.NoError(t, err)
+	defer resp.Body.Close()
 	assert.Equal(t, http.StatusNoContent, resp.StatusCode)
-	resp.Body.Close()
 }
 
 func TestAccountHandler_EnableAccount(t *testing.T) {
-	integration.WaitForService(t, 20)
-
-	baseURL := integration.GetBaseURL()
+	tc := integration.NewTestContext(t)
 
 	// Create an account
 	email := fmt.Sprintf("enable%d@example.com", time.Now().UnixNano())
 	payload := accounts.NewAccountRequest{Email: email}
-	body, _ := json.Marshal(payload)
 
-	resp, _ := http.Post(baseURL+"/api/v1/accounts", "application/json", bytes.NewReader(body))
+	resp, err := tc.Post("/accounts", payload)
+	require.NoError(t, err)
 	resp.Body.Close()
 
 	// Get account ID
-	resp, _ = http.Get(baseURL + "/api/v1/accounts")
-	respBody, _ := io.ReadAll(resp.Body)
-	resp.Body.Close()
+	resp, err = tc.Get("/accounts")
+	require.NoError(t, err)
 
 	var accs []map[string]interface{}
-	json.Unmarshal(respBody, &accs)
+	json.NewDecoder(resp.Body).Decode(&accs)
+	resp.Body.Close()
 
 	var accountID string
 	for _, acc := range accs {
@@ -290,15 +268,27 @@ func TestAccountHandler_EnableAccount(t *testing.T) {
 	}
 	require.NotEmpty(t, accountID)
 
+	// Disable first, then enable
+	disablePayload := accounts.DisableAccountRequest{AccountID: accountID}
+	resp, err = tc.Put("/accounts/disable", disablePayload)
+	require.NoError(t, err)
+	resp.Body.Close()
+
 	// Enable account
 	enablePayload := accounts.EnableAccountRequest{AccountID: accountID}
-	enableBody, _ := json.Marshal(enablePayload)
 
-	req, _ := http.NewRequest(http.MethodPut, baseURL+"/api/v1/accounts/enable", bytes.NewReader(enableBody))
-	req.Header.Set("Content-Type", "application/json")
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	resp, err = tc.Put("/accounts/enable", enablePayload)
 	require.NoError(t, err)
+	defer resp.Body.Close()
 	assert.Equal(t, http.StatusNoContent, resp.StatusCode)
+
+	// Verify account is enabled
+	resp, err = tc.Get("/accounts/" + accountID)
+	require.NoError(t, err)
+
+	var account map[string]interface{}
+	json.NewDecoder(resp.Body).Decode(&account)
 	resp.Body.Close()
+
+	assert.Equal(t, true, account["isEnabled"])
 }

@@ -15,6 +15,7 @@ const (
 	bulwarkAdminRoleDescription = "bulwark internal admin"
 	bulwarkAdminPermission      = "bulwark_admin"
 	bulwarkAdminAction          = "write"
+	systemTenantID              = "00000000-0000-0000-0000-000000000000" // UUID nil
 )
 
 type AdminAccountsService interface {
@@ -33,8 +34,8 @@ type AdminAccountsServiceDefault struct {
 
 // CreateInternalRoles implements AdminAccountsService.
 func (a *AdminAccountsServiceDefault) CreateInternalRoles(ctx context.Context) error {
-	adminPermission := rbac.NewPermission(bulwarkAdminPermission, bulwarkAdminAction)
-	err := a.permissionsRepository.Create(ctx, adminPermission)
+	adminPermission := rbac.NewPermission(systemTenantID, bulwarkAdminPermission, bulwarkAdminAction)
+	err := a.permissionsRepository.Create(ctx, systemTenantID, adminPermission)
 	if err != nil {
 		var duplicatePermission rbac.PermissionDuplicateError
 		if !errors.As(err, &duplicatePermission) {
@@ -42,9 +43,9 @@ func (a *AdminAccountsServiceDefault) CreateInternalRoles(ctx context.Context) e
 		}
 	}
 
-	adminRole := rbac.NewRole(bulwarkAdminRole, bulwarkAdminRoleDescription)
+	adminRole := rbac.NewRole(systemTenantID, bulwarkAdminRole, bulwarkAdminRoleDescription)
 	adminRole.AddPermission(adminPermission.Key)
-	err = a.rolesRepository.Create(ctx, adminRole)
+	err = a.rolesRepository.Create(ctx, systemTenantID, adminRole)
 	if err != nil {
 		var duplicateRole rbac.RoleDuplicateError
 		if !errors.As(err, &duplicateRole) {
@@ -55,8 +56,8 @@ func (a *AdminAccountsServiceDefault) CreateInternalRoles(ctx context.Context) e
 }
 
 // RegisterAccount implements AdminAccountsService.
-func (a *AdminAccountsServiceDefault) RegisterAccount(ctx context.Context, email string, password string) error {
-	admin, err := a.accountsRepository.ReadByEmail(ctx, email)
+func (a *AdminAccountsServiceDefault) RegisterAccount(ctx context.Context, email, password string) error {
+	admin, err := a.accountsRepository.ReadByEmail(ctx, systemTenantID, email)
 	if err != nil {
 		var accountNotFound accounts.AccountNotFoundError
 		if !errors.As(err, &accountNotFound) {
@@ -67,14 +68,14 @@ func (a *AdminAccountsServiceDefault) RegisterAccount(ctx context.Context, email
 			return errors.New("admin account requires password to be created")
 		}
 
-		err = a.auth.Account.Create(ctx, email, password)
+		err = a.auth.Account.Create(ctx, systemTenantID, email, password)
 		if err != nil {
 			var duplicateAccount accounts.AccountDuplicateError
 			if !errors.As(err, &duplicateAccount) {
 				return err
 			}
 		}
-		admin, err = a.accountsRepository.ReadByEmail(ctx, email)
+		admin, err = a.accountsRepository.ReadByEmail(ctx, systemTenantID, email)
 		if err != nil {
 			return err
 		}
@@ -82,20 +83,26 @@ func (a *AdminAccountsServiceDefault) RegisterAccount(ctx context.Context, email
 		admin.IsEnabled = true
 		admin.IsDeleted = false
 
-		err = a.accountsRepository.Update(ctx, *admin)
+		err = a.accountsRepository.Update(ctx, systemTenantID, *admin)
 		if err != nil {
 			return err
 		}
 	}
 
-	err = a.rbacAccountService.AssignRole(ctx, admin.ID, bulwarkAdminRole)
+	// Only assign role if we have the admin account
+	if admin == nil {
+		return nil
+	}
+
+	err = a.rbacAccountService.AssignRole(ctx, systemTenantID, admin.ID, bulwarkAdminRole)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func NewAdminAccountsServiceDefault(accountsRepository accounts.AccountRepository, rolesRepository rbac.RolesRepository, permissionsRepository rbac.PermissionsRepository, rbacAccountService rbacAccounts.AccountRBACService, auth *bulwark.Guard) AdminAccountsService {
+func NewAdminAccountsServiceDefault(accountsRepository accounts.AccountRepository, rolesRepository rbac.RolesRepository,
+	permissionsRepository rbac.PermissionsRepository, rbacAccountService rbacAccounts.AccountRBACService, auth *bulwark.Guard) AdminAccountsService {
 	return &AdminAccountsServiceDefault{
 		accountsRepository:    accountsRepository,
 		permissionsRepository: permissionsRepository,
