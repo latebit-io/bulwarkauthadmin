@@ -61,7 +61,7 @@ echo -e "\n${YELLOW}4. Building and starting BulwarkAuthAdmin service...${NC}"
 # Set environment variables for BulwarkAuthAdmin
 export BULWARK_AUTH_URL=http://localhost:8080
 export DB_CONNECTION="mongodb://localhost:27017/?directConnection=true"
-export DB_NAME_SEED=test
+export DB_NAME_SEED=
 export PORT=8081
 export ADMIN_ACCOUNT=admin@test.example.com
 export ADMIN_ACCOUNT_PASSWORD=TestAdminPassword123!
@@ -98,6 +98,7 @@ echo -e "\n${YELLOW}6. Running integration tests...${NC}"
 export BULWARK_AUTH_URL=http://localhost:8080
 export BULWARK_ADMIN_URL=http://localhost:8081
 export MAILHOG_URL=http://localhost:8025
+export DB_NAME_SEED=
 export ADMIN_ACCOUNT=admin@test.example.com
 export ADMIN_ACCOUNT_PASSWORD=TestAdminPassword123!
 

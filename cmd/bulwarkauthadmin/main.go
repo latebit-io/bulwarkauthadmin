@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/google/uuid"
 	"github.com/joho/godotenv"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -22,6 +23,7 @@ import (
 	"github.com/latebit-io/bulwarkauthadmin/internal/accounts"
 	adminAccount "github.com/latebit-io/bulwarkauthadmin/internal/accounts/admin"
 	accountsRbac "github.com/latebit-io/bulwarkauthadmin/internal/accounts/rbac"
+	"github.com/latebit-io/bulwarkauthadmin/internal/email"
 	"github.com/latebit-io/bulwarkauthadmin/internal/rbac"
 	"github.com/latebit-io/bulwarkauthadmin/internal/tenants"
 	"github.com/latebit-io/bulwarkauthadmin/internal/version"
@@ -30,6 +32,7 @@ import (
 )
 
 func main() {
+	systemTenantID := uuid.Nil.String()
 	versionFlag := flag.Bool("version", false, "Print version information and exit")
 	flag.Parse()
 
@@ -89,6 +92,20 @@ func main() {
 	tenantGroup := service.Group("/api/v1/tenant/:tenantid")
 	tenantGroup.Use(jwt.Jwt)
 	tenantGroup.Use(tenantMiddleware.ExtractAndAuthorizeTenant)
+
+	emailRepo := email.NewMongoDbEmailRepository(mongodb)
+	emailService := email.NewDefaultEmailService("", "",
+		"", "", config.Domain, config.EmailTemplatesDir, config.Domain, emailRepo, email.EmailOptions{
+			VerificationUrl: "",
+			ForgotUrl:       "",
+			MagicUrl:        "",
+			TestMode:        true,
+		})
+
+	err = emailService.Initialize(context.Background(), systemTenantID)
+	if err != nil {
+		panic(err)
+	}
 
 	accountRepository := accounts.NewMongoDBAccountRepository(mongodb)
 	accountsManagmentService := accounts.NewAccountManagementServiceDefault(accountRepository)

@@ -16,6 +16,7 @@ type AppConfig struct {
 	DbNameSeed           string
 	AdminAccount         string
 	AdminAccountPassword string
+	EmailTemplatesDir    string
 }
 
 func NewAppConfig() (*AppConfig, error) {
@@ -26,6 +27,7 @@ func NewAppConfig() (*AppConfig, error) {
 	config.DbConnection = getEnv("DB_CONNECTION", "mongodb://localhost:27017/?connect=direct")
 	config.DbNameSeed = getEnv("DB_NAME_SEED", "")
 	config.AllowedOrigins = getEnvAsStringSlice("ALLOWED_WEB_ORIGINS", []string{"http://localhost:5173"})
+	config.EmailTemplatesDir = getEnv("EMAIL_TEMPLATES_DIR", "")
 	// SECURITY WARNING:
 	// These environment variables are intended only for initial provisioning.
 	// After the first successful startup (once the admin account is created or linked),

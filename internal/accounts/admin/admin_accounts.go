@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 
-	"github.com/google/uuid"
 	bulwark "github.com/latebit-io/bulwark-auth-guard"
 	"github.com/latebit-io/bulwarkauthadmin/internal/accounts"
 	rbacAccounts "github.com/latebit-io/bulwarkauthadmin/internal/accounts/rbac"
@@ -16,9 +15,8 @@ const (
 	bulwarkAdminRoleDescription = "bulwark internal admin"
 	bulwarkAdminPermission      = "bulwark_admin"
 	bulwarkAdminAction          = "write"
+	systemTenantID              = "00000000-0000-0000-0000-000000000000" // UUID nil
 )
-
-var systemTenantID = uuid.Nil.String()
 
 type AdminAccountsService interface {
 	RegisterAccount(ctx context.Context, email string, password string) error
@@ -79,9 +77,7 @@ func (a *AdminAccountsServiceDefault) RegisterAccount(ctx context.Context, email
 		}
 		admin, err = a.accountsRepository.ReadByEmail(ctx, systemTenantID, email)
 		if err != nil {
-			// Account was created in bulwarkauth but may not be immediately available in bulwarkauthadmin
-			// This is acceptable - the account exists in the shared database
-			return nil
+			return err
 		}
 		admin.IsVerified = true
 		admin.IsEnabled = true

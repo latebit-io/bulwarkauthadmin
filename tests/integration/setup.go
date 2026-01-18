@@ -12,11 +12,11 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	bulwark "github.com/latebit-io/bulwark-auth-guard"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -27,6 +27,7 @@ var (
 	bulwarkAuthURL = "http://localhost:8080"
 	baseURL        = "http://localhost:8081"
 	mailhogURL     = "http://localhost:8025"
+	bulwarkGuard   *bulwark.Guard
 
 	// Test tenant and auth state
 	testTenantID    string
@@ -54,6 +55,10 @@ func init() {
 	if uri := os.Getenv("DB_CONNECTION"); uri != "" {
 		mongoURI = uri
 	}
+
+	// Initialize the bulwark guard
+	httpClient := &http.Client{}
+	bulwarkGuard = bulwark.NewGuard(bulwarkAuthURL, httpClient)
 }
 
 func TestMain(m *testing.M) {
@@ -186,21 +191,29 @@ func setupTestTenantInternal(t *testing.T) (string, string, error) {
 		return "", "", fmt.Errorf("failed to ensure default tenant exists: %w", err)
 	}
 
-	// Create a test user account via BulwarkAuth
+	// Create a test user account via BulwarkAuth using the Guard client
 	testEmail := fmt.Sprintf("testuser_%d@example.com", time.Now().UnixNano())
 	testPassword := "TestPassword123!"
 	testClientID := "integration-test-client"
 
-	// Register the account with bulwarkauth
-	err = createAccount(tenantID, testEmail, testPassword)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Register the account with bulwarkauth using the Guard
+	err = bulwarkGuard.Account.Create(ctx, tenantID, testEmail, testPassword)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to create account: %w", err)
 	}
 
-	// For testing, directly mark the account as verified in the database
-	err = markAccountAsVerified(tenantID, testEmail)
+	// Get verification token from mailhog and verify via BulwarkAuth API
+	verificationToken, err := getVerificationTokenFromMailhog(testEmail)
 	if err != nil {
-		return "", "", fmt.Errorf("failed to verify account in database: %w", err)
+		return "", "", fmt.Errorf("failed to get verification token from mailhog: %w", err)
+	}
+
+	err = bulwarkGuard.Account.Verify(ctx, tenantID, testEmail, verificationToken)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to verify account: %w", err)
 	}
 
 	// Authenticate and get access token
@@ -212,77 +225,65 @@ func setupTestTenantInternal(t *testing.T) (string, string, error) {
 	return tenantID, accessToken, nil
 }
 
-// ensureDefaultTenantExists creates the "default" tenant in bulwarkauthadmin's database
-// if it doesn't already exist. This is needed because bulwarkauth uses "default" as its
-// tenant ID, and bulwarkauthadmin needs this tenant to exist for the middleware to validate.
+// ensureDefaultTenantExists creates the "default" tenant in bulwarkauthadmin via the admin API.
+// This is needed because bulwarkauth uses "default" as its tenant ID, and bulwarkauthadmin
+// needs this tenant to exist for the middleware to validate.
+// Uses system admin authentication to call the tenant management API.
 func ensureDefaultTenantExists() error {
-	if mongoClient == nil {
-		return errors.New("mongodb client not initialized")
+	// Get system admin credentials from environment
+	adminEmail := os.Getenv("ADMIN_ACCOUNT")
+	adminPassword := os.Getenv("ADMIN_ACCOUNT_PASSWORD")
+
+	if adminEmail == "" || adminPassword == "" {
+		return errors.New("ADMIN_ACCOUNT and ADMIN_ACCOUNT_PASSWORD environment variables must be set")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	dbName := "bulwarkauthtest"
-	if seed := os.Getenv("DB_NAME_SEED"); seed != "" {
-		dbName = "bulwarkauth" + seed
+	// Authenticate as system admin to get access token
+	var accessToken string
+	var err error
+	for i := 0; i < 10; i++ {
+		accessToken, err = authenticateWithPassword(SystemTenantID, adminEmail, adminPassword, "integration-test-client")
+		if err == nil {
+			break
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+	if err != nil {
+		return fmt.Errorf("failed to authenticate as system admin: %w", err)
 	}
 
-	collection := mongoClient.Database(dbName).Collection("tenants")
+	// Check if default tenant already exists via API
+	adminURL := fmt.Sprintf("%s/api/v1/admin/tenants/%s", baseURL, DefaultTenantID)
+	resp, err := MakeAuthenticatedRequest(http.MethodGet, adminURL, accessToken, nil)
+	if err != nil {
+		return fmt.Errorf("failed to check tenant existence: %w", err)
+	}
+	resp.Body.Close()
 
-	// Check if default tenant already exists
-	var existing struct{}
-	err := collection.FindOne(ctx, map[string]string{"id": DefaultTenantID}).Decode(&existing)
-	if err == nil {
+	if resp.StatusCode == http.StatusOK {
 		// Tenant already exists
 		return nil
 	}
 
-	// Create the default tenant
-	tenant := map[string]interface{}{
-		"id":          DefaultTenantID,
-		"name":        "Default",
-		"description": "Default tenant for testing",
-		"domain":      "",
-		"created":     time.Now(),
-		"modified":    time.Now(),
+	// Create the default tenant via admin API
+	createURL := fmt.Sprintf("%s/api/v1/admin/tenants", baseURL)
+	tenant := map[string]string{
+		"Name":        "Default",
+		"Description": "Default tenant for testing",
+		"Domain":      "",
 	}
+	body, _ := json.Marshal(tenant)
 
-	_, err = collection.InsertOne(ctx, tenant)
+	resp, err = MakeAuthenticatedRequest(http.MethodPost, createURL, accessToken, body)
 	if err != nil {
-		// Ignore duplicate key error (race condition)
-		if !isDuplicateKeyError(err) {
-			return err
-		}
-	}
-
-	return nil
-}
-
-// isDuplicateKeyError checks if the error is a MongoDB duplicate key error
-func isDuplicateKeyError(err error) bool {
-	return err != nil && (strings.Contains(err.Error(), "duplicate key") || strings.Contains(err.Error(), "E11000"))
-}
-
-// createAccount creates an account via BulwarkAuth API
-func createAccount(tenantID, email, password string) error {
-	payload := map[string]string{
-		"tenantId": tenantID,
-		"email":    email,
-		"password": password,
-	}
-	body, _ := json.Marshal(payload)
-
-	url := fmt.Sprintf("%s/api/accounts", bulwarkAuthURL)
-	resp, err := http.Post(url, "application/json", bytes.NewReader(body))
-	if err != nil {
-		return err
+		return fmt.Errorf("failed to create tenant: %w", err)
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
+	// 201 Created or 409 Conflict (already exists) are both acceptable
+	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusConflict {
 		respBody, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("failed to create account: status=%d, body=%s", resp.StatusCode, string(respBody))
+		return fmt.Errorf("failed to create tenant: status=%d, body=%s", resp.StatusCode, string(respBody))
 	}
 
 	return nil
@@ -328,100 +329,6 @@ func getVerificationTokenFromMailhog(email string) (string, error) {
 	}
 
 	return "", fmt.Errorf("verification email not found for %s", email)
-}
-
-// extractTokenFromEmailBody extracts the verification token from email body
-func extractTokenFromEmailBody(body string) (string, error) {
-	// Look for vt= (verification token) in the body
-	// The email format is: ...&vt=<token>" or ...?vt=<token>...
-	tokenStart := -1
-	for i := 0; i < len(body)-3; i++ {
-		if body[i:i+3] == "vt=" {
-			tokenStart = i + 3
-			break
-		}
-	}
-
-	if tokenStart == -1 {
-		return "", errors.New("verification token (vt=) not found in email body")
-	}
-
-	// Extract until whitespace, quote, ampersand, or end of string
-	tokenEnd := tokenStart
-	for tokenEnd < len(body) && body[tokenEnd] != ' ' && body[tokenEnd] != '\n' && body[tokenEnd] != '\r' && body[tokenEnd] != '"' && body[tokenEnd] != '&' && body[tokenEnd] != '<' {
-		tokenEnd++
-	}
-
-	if tokenEnd == tokenStart {
-		return "", errors.New("empty verification token in email body")
-	}
-
-	return body[tokenStart:tokenEnd], nil
-}
-
-// markAccountAsVerified directly updates the database to mark an account as verified
-// This bypasses the email verification flow for testing purposes
-func markAccountAsVerified(tenantID, email string) error {
-	if mongoClient == nil {
-		return errors.New("mongodb client not initialized")
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	dbName := "bulwarkauthtest"
-	if seed := os.Getenv("DB_NAME_SEED"); seed != "" {
-		dbName = "bulwarkauth" + seed
-	}
-
-	collection := mongoClient.Database(dbName).Collection("accounts")
-
-	// Update the account to set isVerified=true and isEnabled=true
-	filter := map[string]interface{}{
-		"tenantId": tenantID,
-		"email":    email,
-	}
-	update := map[string]interface{}{
-		"$set": map[string]interface{}{
-			"isVerified": true,
-			"isEnabled":  true,
-		},
-	}
-
-	result, err := collection.UpdateOne(ctx, filter, update)
-	if err != nil {
-		return err
-	}
-
-	if result.MatchedCount == 0 {
-		return fmt.Errorf("account not found: %s", email)
-	}
-
-	return nil
-}
-
-// verifyAccount verifies an account via BulwarkAuth API
-func verifyAccount(tenantID, email, token string) error {
-	payload := map[string]string{
-		"tenantId":          tenantID,
-		"email":             email,
-		"verificationToken": token,
-	}
-	body, _ := json.Marshal(payload)
-
-	url := fmt.Sprintf("%s/api/accounts/verify", bulwarkAuthURL)
-	resp, err := http.Post(url, "application/json", bytes.NewReader(body))
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
-		respBody, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("failed to verify account: status=%d, body=%s", resp.StatusCode, string(respBody))
-	}
-
-	return nil
 }
 
 // authenticateWithPassword authenticates via BulwarkAuth and returns access token
@@ -473,6 +380,35 @@ func authenticateWithPassword(tenantID, email, password, clientID string) (strin
 	return authResponse.AccessToken, nil
 }
 
+// extractTokenFromEmailBody extracts the verification token from email body
+func extractTokenFromEmailBody(body string) (string, error) {
+	// Look for vt= (verification token) in the body
+	// The email format is: ...&vt=<token>" or ...?vt=<token>...
+	tokenStart := -1
+	for i := 0; i < len(body)-3; i++ {
+		if body[i:i+3] == "vt=" {
+			tokenStart = i + 3
+			break
+		}
+	}
+
+	if tokenStart == -1 {
+		return "", errors.New("verification token (vt=) not found in email body")
+	}
+
+	// Extract until whitespace, quote, ampersand, or end of string
+	tokenEnd := tokenStart
+	for tokenEnd < len(body) && body[tokenEnd] != ' ' && body[tokenEnd] != '\n' && body[tokenEnd] != '\r' && body[tokenEnd] != '"' && body[tokenEnd] != '&' && body[tokenEnd] != '<' {
+		tokenEnd++
+	}
+
+	if tokenEnd == tokenStart {
+		return "", errors.New("empty verification token in email body")
+	}
+
+	return body[tokenStart:tokenEnd], nil
+}
+
 // MakeAuthenticatedRequest makes an HTTP request with the Authorization header
 func MakeAuthenticatedRequest(method, url, accessToken string, body []byte) (*http.Response, error) {
 	var bodyReader io.Reader
@@ -508,7 +444,7 @@ func CleanupDatabase(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	dbName := "bulwarkauthtest"
+	dbName := "bulwarkauth"
 	if seed := os.Getenv("DB_NAME_SEED"); seed != "" {
 		dbName = "bulwarkauth" + seed
 	}
@@ -599,11 +535,27 @@ func SetupSystemAdminContext(t *testing.T) *TestContext {
 		t.Fatal("ADMIN_ACCOUNT and ADMIN_ACCOUNT_PASSWORD environment variables must be set for system admin tests")
 	}
 
+	// The system admin account is created and auto-verified by bulwarkauthadmin on startup
+	// via the AdminAccountsService.RegisterAccount() method
+
 	// Authenticate as system admin via bulwarkauth
-	// System admin is created in system tenant, but authenticates via bulwarkauth's default tenant
-	accessToken, err := authenticateWithPassword(DefaultTenantID, adminEmail, adminPassword, "integration-test-client")
+	// System admin is created in the system tenant (UUID nil)
+	// Retry a few times in case the account needs a moment to be available
+	var accessToken string
+	var err error
+	for i := 0; i < 5; i++ {
+		accessToken, err = authenticateWithPassword(SystemTenantID, adminEmail, adminPassword, "integration-test-client")
+		if err == nil {
+			break
+		}
+		if i < 4 {
+			t.Logf("Admin authentication attempt %d failed, retrying: %v", i+1, err)
+			time.Sleep(500 * time.Millisecond)
+		}
+	}
+
 	if err != nil {
-		t.Fatalf("Failed to authenticate as system admin: %v", err)
+		t.Fatalf("Failed to authenticate as system admin after retries: %v", err)
 	}
 
 	// System admin accesses the system tenant via the API
