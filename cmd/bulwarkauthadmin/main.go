@@ -80,8 +80,21 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	emailRepo := email.NewMongoDbEmailRepository(mongodb)
+	emailService := email.NewDefaultEmailService("", "",
+		"", "", config.Domain, config.EmailTemplatesDir, config.Domain, emailRepo, email.EmailOptions{
+			VerificationUrl: "",
+			ForgotUrl:       "",
+			MagicUrl:        "",
+			TestMode:        true,
+		})
 
-	tenantService := tenants.NewDefaultTenantService(tenantRepository)
+	err = emailService.CreateDefaultTemplates(context.Background(), systemTenantID)
+	if err != nil {
+		panic(err)
+	}
+
+	tenantService := tenants.NewDefaultTenantService(tenantRepository, emailService)
 	adminGroup := service.Group("/api/v1/admin")
 	adminGroup.Use(jwt.JwtForSystemRoutes) // Validate JWT with system tenant
 	adminGroup.Use(bulwarkauthmiddleware.RequireSystemAdmin)
@@ -92,20 +105,6 @@ func main() {
 	tenantGroup := service.Group("/api/v1/tenant/:tenantid")
 	tenantGroup.Use(jwt.Jwt)
 	tenantGroup.Use(tenantMiddleware.ExtractAndAuthorizeTenant)
-
-	emailRepo := email.NewMongoDbEmailRepository(mongodb)
-	emailService := email.NewDefaultEmailService("", "",
-		"", "", config.Domain, config.EmailTemplatesDir, config.Domain, emailRepo, email.EmailOptions{
-			VerificationUrl: "",
-			ForgotUrl:       "",
-			MagicUrl:        "",
-			TestMode:        true,
-		})
-
-	err = emailService.Initialize(context.Background(), systemTenantID)
-	if err != nil {
-		panic(err)
-	}
 
 	accountRepository := accounts.NewMongoDBAccountRepository(mongodb)
 	accountsManagmentService := accounts.NewAccountManagementServiceDefault(accountRepository)

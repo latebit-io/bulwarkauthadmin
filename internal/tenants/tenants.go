@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/latebit-io/bulwarkauthadmin/internal/email"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -27,7 +28,7 @@ type Tenant struct {
 type TenantRepository interface {
 	ReadAll(ctx context.Context) ([]Tenant, error)
 	Read(ctx context.Context, tenantID string) (*Tenant, error)
-	Create(ctx context.Context, tenant Tenant) error
+	Create(ctx context.Context, tenant Tenant) (string, error)
 	CreateSystem(ctx context.Context) error
 	Update(ctx context.Context, tenant Tenant) error
 	Delete(ctx context.Context, tenantID string) error
@@ -105,7 +106,7 @@ func (t *MongoDbTenantRepository) Read(ctx context.Context, tenantID string) (*T
 	return &tenant, nil
 }
 
-func (t *MongoDbTenantRepository) Create(ctx context.Context, tenant Tenant) error {
+func (t *MongoDbTenantRepository) Create(ctx context.Context, tenant Tenant) (string, error) {
 	collection := t.db.Collection(tenantCollection)
 	tenant.ID = uuid.New().String()
 	tenant.Created = time.Now()
@@ -114,14 +115,14 @@ func (t *MongoDbTenantRepository) Create(ctx context.Context, tenant Tenant) err
 
 	if err != nil {
 		if mongo.IsDuplicateKeyError(err) {
-			return TenantDuplicateError{
+			return "", TenantDuplicateError{
 				Value: tenant.Name,
 			}
 		}
-		return err
+		return "", err
 	}
 
-	return nil
+	return tenant.ID, nil
 }
 
 func (t *MongoDbTenantRepository) CreateSystem(ctx context.Context) error {
@@ -163,12 +164,14 @@ func (t *MongoDbTenantRepository) Delete(ctx context.Context, tenantID string) e
 }
 
 type DefaultTenantService struct {
-	repo TenantRepository
+	repo         TenantRepository
+	emailService email.EmailService
 }
 
-func NewDefaultTenantService(repo TenantRepository) TenantService {
+func NewDefaultTenantService(repo TenantRepository, emailService email.EmailService) TenantService {
 	return &DefaultTenantService{
-		repo: repo,
+		repo:         repo,
+		emailService: emailService,
 	}
 }
 
@@ -186,7 +189,15 @@ func (s *DefaultTenantService) AddTenant(ctx context.Context, name, description,
 		Description: description,
 		Domain:      domain,
 	}
-	return s.repo.Create(ctx, newTenant)
+	tenantID, err := s.repo.Create(ctx, newTenant)
+	if err != nil {
+		return err
+	}
+	err = s.emailService.CreateDefaultTemplates(ctx, tenantID)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (s *DefaultTenantService) UpdateTenant(ctx context.Context, tenantID, name, description, domain string) error {

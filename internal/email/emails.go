@@ -56,13 +56,10 @@ type EmailOptions struct {
 
 // EmailService email service contract
 type EmailService interface {
+	CreateDefaultTemplates(ctx context.Context, tenantID string) error
 	SendVerificationEmail(ctx context.Context, tenantID, email, verificationToken string) error
 	SendForgotPasswordEmail(ctx context.Context, tenantID, email, forgotToken string) error
 	SendMagicLinkEmail(ctx context.Context, tenantID, email, code string) error
-}
-
-type EmailTemplateProvider interface {
-	Initialize(ctx context.Context) error
 }
 
 // DefaultEmailService default email service
@@ -95,7 +92,7 @@ func NewDefaultEmailService(user, secret, server, port, baseUrl, templatesDir,
 	}
 }
 
-func (s *DefaultEmailService) Initialize(ctx context.Context, tenantID string) error {
+func (s *DefaultEmailService) CreateDefaultTemplates(ctx context.Context, tenantID string) error {
 	err := s.verification(ctx, tenantID)
 	if err != nil {
 		return err
