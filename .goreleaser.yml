@@ -34,8 +34,11 @@ archives:
     format_overrides:
       - goos: windows
         format: zip
-#    files:
-#      - somefile.md
+    files:
+      - verification.html
+      - magic.html
+      - forgot.html
+      - README.md
 
 checksum:
   name_template: "checksums.txt"
@@ -64,3 +67,7 @@ dockers:
       - "--label=org.opencontainers.image.revision={{.FullCommit}}"
       - "--label=org.opencontainers.image.version={{.Version}}"
       - "--platform=linux/amd64"
+    extra_files:
+      - verification.html
+      - magic.html
+      - forgot.html
