@@ -53,26 +53,39 @@ api/                      # HTTP handlers and routes
   accounts/               # Account management endpoints
   health/                 # Health check endpoint
   problem/                # RFC 7807 problem details (standardized errors)
+  rbac/                   # RBAC endpoints
+  tenants/                # Tenant management endpoints
 
 internal/                 # Business logic and data access
   accounts/               # Account domain
     accounts.go           # Service interfaces and implementations
     mongodb_account_repository.go  # Repository implementation
     error.go              # Domain-specific errors
-  rbac/                   # RBAC (scaffolded - interfaces only)
-    roles.go              # Role/Permission interfaces
+  rbac/                   # RBAC domain
+    roles.go              # Role/Permission services and repositories
+    permissions.go        # Permission implementation
+  tenants/                # Tenant domain
+    tenants.go            # Service interfaces and implementations
+    mongodb_tenants_repository.go  # Repository implementation
+    error.go              # Domain-specific errors
+  email/                  # Email template management
+    emails.go             # Email service
+    mongodb_email_repository.go  # Repository
   shared/                 # Common utilities (paging)
   utils/                  # Test utilities (memongo setup)
   version/                # Version info
+  middleware/             # JWT and tenant middleware
 
 cmd/bulwarkauthadmin/     # Application entry point
-  main.go                 # Service initialization
+  main.go                 # Service initialization and route registration
   config.go               # Environment configuration
   .env                    # Configuration file
 
 tests/integration/        # Integration tests
-  setup.go                # Test infrastructure
+  setup.go                # Test infrastructure and helpers
   accounts/               # Account handler tests
+  rbac/                   # RBAC handler tests
+  tenants/                # Tenant handler tests
 ```
 
 ## Common Commands
@@ -93,22 +106,19 @@ go run cmd/bulwarkauthadmin/main.go
 
 ```bash
 # Unit tests (no external dependencies)
-go test -v ./internal/accounts/...
-go test -v -cover ./internal/accounts/...
+go test -v ./internal/...
+go test -v -cover ./internal/...
 
 # Integration tests (requires MongoDB + running service)
 ./run-integration-tests.sh
 
-# Manual integration tests
-docker-compose -f docker-compose.test.yml up -d
-go run cmd/bulwarkauthadmin/main.go  # In another terminal
-go test -v -tags=integration ./tests/integration/...
+# Run specific integration test package
+go test -v -tags=integration ./tests/integration/accounts
+go test -v -tags=integration ./tests/integration/rbac
+go test -v -tags=integration ./tests/integration/tenants
 
-# Run specific integration test
+# Run specific test
 go test -v -tags=integration -run TestAccountHandler_RegisterAccount ./tests/integration/accounts
-
-# Cleanup
-docker-compose -f docker-compose.test.yml down
 ```
 
 ### Database
@@ -142,12 +152,30 @@ goreleaser release --snapshot --clean
 
 ## Data Models
 
+### Tenant Structure
+
+```go
+type Tenant struct {
+    ID          string    // UUID
+    Name        string    // Unique, immutable
+    Description string
+    Domain      string
+    Created     time.Time
+    Modified    time.Time
+}
+```
+
+**Important Notes:**
+- Tenant name has unique index at database level
+- System tenant created on startup with ID `00000000-0000-0000-0000-000000000000`
+
 ### Account Structure
 
 ```go
 type Account struct {
     ID                 string            // UUID
-    Email              string            // Unique, required
+    TenantID           string            // Reference to tenant
+    Email              string            // Unique per tenant
     IsVerified         bool
     VerificationToken  string            // UUID
     IsEnabled          bool              // Account active status
@@ -163,10 +191,10 @@ type Account struct {
 **Important Notes:**
 - Accounts use soft deletes (`IsDeleted` flag) by default
 - `PurgeAccount` performs hard deletion
-- Email has unique index at database level
+- Email has unique index per tenant
 - Roles and Permissions are stored as string arrays (names, not ObjectIDs)
 
-### RBAC Models (scaffolded)
+### RBAC Models
 
 ```go
 type Role struct {
@@ -187,15 +215,35 @@ type Permission struct {
 
 ## API Endpoints
 
-### Account Management
-- `POST /api/accounts` - Register new account
-- `GET /api/accounts` - List all accounts (paginated)
-- `GET /api/accounts/:id` - Get account details
-- `PUT /api/accounts/email` - Change account email
-- `PUT /api/accounts/disable` - Disable account
-- `PUT /api/accounts/enable` - Enable account
-- `PUT /api/accounts/deactivate` - Soft delete account
-- `PUT /api/accounts/unlink` - Unlink social provider
+All routes are under `/api/v1/` prefix.
+
+### Account Management (Tenant-scoped: `/api/v1/tenant/:tenantid/accounts`)
+- `POST /accounts` - Register new account
+- `GET /accounts` - List all accounts (paginated)
+- `GET /accounts/:id` - Get account details
+- `PUT /accounts/email` - Change account email
+- `PUT /accounts/disable` - Disable account
+- `PUT /accounts/enable` - Enable account
+- `PUT /accounts/deactivate` - Soft delete account
+- `PUT /accounts/unlink` - Unlink social provider
+
+### RBAC Management (Tenant-scoped: `/api/v1/tenant/:tenantid/rbac`)
+- `POST /roles` - Create role
+- `GET /roles` - List roles
+- `GET /roles/:name` - Get role details
+- `PUT /roles/:name` - Update role
+- `DELETE /roles/:name` - Delete role
+- `POST /permissions` - Create permission
+- `GET /permissions` - List permissions
+- `DELETE /permissions/:name` - Delete permission
+
+### Tenant Management (Admin-scoped: `/api/v1/admin/tenants`)
+Requires system admin role
+- `POST /tenants` - Create tenant
+- `GET /tenants` - List all tenants
+- `GET /tenants/:id` - Get tenant details
+- `PUT /tenants/:id` - Update tenant
+- `DELETE /tenants/:id` - Delete tenant
 
 ### Health
 - `GET /health` - Health check
@@ -300,29 +348,31 @@ BREAKING CHANGE: breaking API change
 
 ## Current Development Status
 
-### Implemented
-- Account management (CRUD operations)
-- Social provider linking/unlinking
-- Soft delete and hard delete (purge)
-- Email uniqueness enforcement
-- CORS middleware (configurable)
-- Unit and integration testing infrastructure
-- CI/CD with automated versioning
-
-### Scaffolded (Interfaces Only)
-- RBAC (Role and Permission repositories and services)
-- JWT token management
-- Magic code management
+### Fully Implemented
+- **Multi-tenant architecture** - System tenant + user-managed tenants
+- **Account management** - Registration, lifecycle, social provider linking
+- **RBAC system** - Roles, permissions, role-based and direct permission grants
+- **Tenant management** - Create, read, update, delete tenants (admin only)
+- **Email templates** - Per-tenant email template management
+- **Authentication** - JWT validation with tenant context extraction
+- **CORS middleware** - Configurable cross-origin support
+- **Comprehensive testing** - Unit tests + integration tests for all domains
+  - Account tests: 3 unit tests + 7 integration tests
+  - RBAC tests: 2 unit tests + 10 integration tests
+  - Tenant tests: 8 unit tests + 12 integration tests
+- **CI/CD** - Automated versioning, building, and Docker image publishing
 
 ### Active Branch
-- `feat-add-cors` - CORS middleware implementation
 - Main branch: `main`
+- Current feature branch: `feat-multi-tenant`
 
 ## MongoDB Collections
 
-- **accounts** - User accounts with unique email index
-- **roles** - (Scaffolded) RBAC roles
-- **permissions** - (Scaffolded) RBAC permissions
+- **tenants** - Multi-tenant configuration with unique name index
+- **accounts** - User accounts (per tenant) with unique email index per tenant
+- **roles** - RBAC roles (per tenant)
+- **permissions** - RBAC permissions (per tenant)
+- **email_templates** - Email templates (per tenant)
 
 Database name: `bulwarkauth{DB_NAME_SEED}` (e.g., `bulwarkauth`, `bulwarkauthtest`)
 
