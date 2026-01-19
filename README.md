@@ -146,7 +146,7 @@ Configure the service behavior using the following environment variables:
 
 | Variable | Type | Default | Description |
 |----------|------|---------|-------------|
-| `EMAIL_TEMPLATES_DIR` | string | `` (empty) | Directory path containing email templates |
+| `EMAIL_TEMPLATES_DIR` | string | `` (empty) | Directory path containing email templates. When empty (the default), templates are loaded from the current working directory. If a custom path is provided, it must include a trailing slash (e.g., `/path/to/templates/`). In Docker deployments, templates are pre-installed at `/app/`, so this variable typically does not need to be set. |
 
 ### Example .env File
 
