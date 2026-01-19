@@ -168,7 +168,7 @@ ADMIN_ACCOUNT=admin@example.com
 ADMIN_ACCOUNT_PASSWORD=SecurePassword123!
 
 # Email Templates
-EMAIL_TEMPLATES_DIR=/path/to/email/templates
+EMAIL_TEMPLATES_DIR=/path/to/email/templates/
 ```
 
 ### Setting Environment Variables
