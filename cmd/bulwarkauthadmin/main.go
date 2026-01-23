@@ -101,18 +101,28 @@ func main() {
 	tenantsHandler := tenantsapi.NewTenantHandler(tenantService) // Require bulwark_admin role
 	tenantsapi.TenantRoutesV1(adminGroup, tenantsHandler)
 
+	permissionsRepository := rbac.NewMongoDBPermissionsRepository(mongodb)
+	rolesRepository := rbac.NewMongoDBRolesRepository(mongodb)
+	tenantAdminService := tenants.NewTenantAdminServiceDefault(rolesRepository, permissionsRepository)
+
+	// Create tenant admin role for system tenant
+	err = tenantAdminService.CreateTenantAdminRole(context.Background(), systemTenantID)
+	if err != nil {
+		logger.Error("failed to create tenant admin role for system tenant", "error", err)
+		panic(err)
+	}
+
 	tenantMiddleware := bulwarkauthmiddleware.NewTenantMiddleware(tenantService)
 	tenantGroup := service.Group("/api/v1/tenant/:tenantid")
 	tenantGroup.Use(jwt.Jwt)
 	tenantGroup.Use(tenantMiddleware.ExtractAndAuthorizeTenant)
+	tenantGroup.Use(tenantMiddleware.RequireTenantAdminOrSystemAdmin)
 
 	accountRepository := accounts.NewMongoDBAccountRepository(mongodb)
 	accountsManagmentService := accounts.NewAccountManagementServiceDefault(accountRepository)
 	accountsHandler := accountsapi.NewAccountHandler(accountsManagmentService)
 	accountsapi.AccountRoutesV1(tenantGroup, accountsHandler)
 
-	permissionsRepository := rbac.NewMongoDBPermissionsRepository(mongodb)
-	rolesRepository := rbac.NewMongoDBRolesRepository(mongodb)
 	roleService := rbac.NewRoleServiceDefault(rolesRepository)
 	permissionService := rbac.NewPermissionServiceDefault(permissionsRepository)
 	rbacHandler := rbacapi.NewRbacHandler(roleService, permissionService)

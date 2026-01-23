@@ -1,0 +1,1259 @@
+openapi: 3.0.0
+info:
+  title: BulwarkAuthAdmin API
+  description: |
+    Multi-tenant user account and authentication management service.
+    Provides REST API endpoints for account lifecycle operations, social provider management,
+    and role-based access control (RBAC).
+  version: 0.2.0
+  contact:
+    name: Bulwark Auth Admin
+    url: https://github.com/latebit-io/bulwarkauthadmin
+  license:
+    name: MIT
+
+servers:
+  - url: http://localhost:8081/api/v1
+    description: Local development server
+  - url: https://api.example.com/api/v1
+    description: Production server
+
+tags:
+  - name: Health
+    description: Service health checks
+  - name: Accounts
+    description: Account management and lifecycle operations
+  - name: RBAC
+    description: Role and permission management
+  - name: Account RBAC
+    description: Account role and permission assignments
+  - name: Tenants
+    description: Tenant management (system admin only)
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      operationId: getHealth
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+  /admin/tenants:
+    post:
+      summary: Create a new tenant
+      operationId: createTenant
+      tags:
+        - Tenants
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - Name
+                - Description
+                - Domain
+              properties:
+                Name:
+                  type: string
+                  description: Unique tenant name
+                  minLength: 1
+                Description:
+                  type: string
+                  description: Tenant description
+                Domain:
+                  type: string
+                  description: Tenant domain
+      responses:
+        '201':
+          description: Tenant created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tenant'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: Tenant name already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+    get:
+      summary: List all tenants
+      operationId: listTenants
+      tags:
+        - Tenants
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of tenants
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Tenant'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /admin/tenants/{tenantId}:
+    get:
+      summary: Get tenant details
+      operationId: getTenant
+      tags:
+        - Tenants
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Tenant ID (UUID)
+      responses:
+        '200':
+          description: Tenant details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tenant'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      summary: Update tenant
+      operationId: updateTenant
+      tags:
+        - Tenants
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                Name:
+                  type: string
+                Description:
+                  type: string
+                Domain:
+                  type: string
+      responses:
+        '200':
+          description: Tenant updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tenant'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      summary: Delete tenant
+      operationId: deleteTenant
+      tags:
+        - Tenants
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Tenant deleted successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /tenant/{tenantId}/accounts:
+    post:
+      summary: Register a new account
+      operationId: registerAccount
+      tags:
+        - Accounts
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - Email
+              properties:
+                Email:
+                  type: string
+                  format: email
+                  description: Account email address
+      responses:
+        '201':
+          description: Account created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Account'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: Email already exists in this tenant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+    get:
+      summary: List accounts in tenant
+      operationId: listAccounts
+      tags:
+        - Accounts
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+          description: Page number (0-indexed)
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 10
+          description: Page size
+      responses:
+        '200':
+          description: List of accounts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Account'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /tenant/{tenantId}/accounts/{accountId}:
+    get:
+      summary: Get account details
+      operationId: getAccount
+      tags:
+        - Accounts
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Account details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountDetails'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /tenant/{tenantId}/accounts/email:
+    put:
+      summary: Change account email
+      operationId: changeAccountEmail
+      tags:
+        - Accounts
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - AccountId
+                - Email
+              properties:
+                AccountId:
+                  type: string
+                  description: Account ID
+                Email:
+                  type: string
+                  format: email
+                  description: New email address
+      responses:
+        '200':
+          description: Email changed successfully
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /tenant/{tenantId}/accounts/disable:
+    put:
+      summary: Disable account
+      operationId: disableAccount
+      tags:
+        - Accounts
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - AccountId
+              properties:
+                AccountId:
+                  type: string
+      responses:
+        '200':
+          description: Account disabled successfully
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /tenant/{tenantId}/accounts/enable:
+    put:
+      summary: Enable account
+      operationId: enableAccount
+      tags:
+        - Accounts
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - AccountId
+              properties:
+                AccountId:
+                  type: string
+      responses:
+        '200':
+          description: Account enabled successfully
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /tenant/{tenantId}/accounts/deactivate:
+    put:
+      summary: Soft delete (deactivate) account
+      operationId: deactivateAccount
+      tags:
+        - Accounts
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - AccountId
+              properties:
+                AccountId:
+                  type: string
+      responses:
+        '200':
+          description: Account deactivated successfully
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /tenant/{tenantId}/accounts/unlink:
+    put:
+      summary: Unlink social provider from account
+      operationId: unlinkSocialProvider
+      tags:
+        - Accounts
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - AccountId
+                - Provider
+              properties:
+                AccountId:
+                  type: string
+                Provider:
+                  type: string
+                  description: Social provider name (e.g., google, github)
+      responses:
+        '200':
+          description: Social provider unlinked successfully
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /tenant/{tenantId}/rbac/roles:
+    post:
+      summary: Create a new role
+      operationId: createRole
+      tags:
+        - RBAC
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - Name
+                - Description
+              properties:
+                Name:
+                  type: string
+                  description: Unique role name
+                Description:
+                  type: string
+      responses:
+        '201':
+          description: Role created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Role'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: Role already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+    get:
+      summary: List roles in tenant
+      operationId: listRoles
+      tags:
+        - RBAC
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: List of roles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Role'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /tenant/{tenantId}/rbac/roles/{roleName}:
+    get:
+      summary: Get role details
+      operationId: getRole
+      tags:
+        - RBAC
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: roleName
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Role details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Role'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      summary: Update role
+      operationId: updateRole
+      tags:
+        - RBAC
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: roleName
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                Description:
+                  type: string
+      responses:
+        '200':
+          description: Role updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Role'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      summary: Delete role
+      operationId: deleteRole
+      tags:
+        - RBAC
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: roleName
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Role deleted successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /tenant/{tenantId}/rbac/permissions:
+    post:
+      summary: Create a new permission
+      operationId: createPermission
+      tags:
+        - RBAC
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - Name
+                - Action
+              properties:
+                Name:
+                  type: string
+                  description: Permission resource name
+                Action:
+                  type: string
+                  description: Permission action (e.g., read, write, manage)
+      responses:
+        '201':
+          description: Permission created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Permission'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: Permission already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+    get:
+      summary: List permissions in tenant
+      operationId: listPermissions
+      tags:
+        - RBAC
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: List of permissions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Permission'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /tenant/{tenantId}/rbac/permissions/{permissionKey}:
+    delete:
+      summary: Delete permission
+      operationId: deletePermission
+      tags:
+        - RBAC
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: permissionKey
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Permission key in format 'resource:action'
+      responses:
+        '204':
+          description: Permission deleted successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /tenant/{tenantId}/accounts/rbac/roles:
+    post:
+      summary: Assign role to account
+      operationId: assignRoleToAccount
+      tags:
+        - Account RBAC
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - accountId
+                - role
+              properties:
+                accountId:
+                  type: string
+                  description: Account ID
+                role:
+                  type: string
+                  description: Role name
+      responses:
+        '200':
+          description: Role assigned successfully
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      summary: Remove role from account
+      operationId: removeRoleFromAccount
+      tags:
+        - Account RBAC
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - accountId
+                - role
+              properties:
+                accountId:
+                  type: string
+                role:
+                  type: string
+      responses:
+        '200':
+          description: Role removed successfully
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /tenant/{tenantId}/accounts/rbac/permissions:
+    post:
+      summary: Assign permission to account
+      operationId: assignPermissionToAccount
+      tags:
+        - Account RBAC
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - accountId
+                - permission
+              properties:
+                accountId:
+                  type: string
+                permission:
+                  type: string
+                  description: Permission key in format 'resource:action'
+      responses:
+        '200':
+          description: Permission assigned successfully
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      summary: Remove permission from account
+      operationId: removePermissionFromAccount
+      tags:
+        - Account RBAC
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - accountId
+                - permission
+              properties:
+                accountId:
+                  type: string
+                permission:
+                  type: string
+      responses:
+        '200':
+          description: Permission removed successfully
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token obtained from BulwarkAuth service
+
+  responses:
+    BadRequest:
+      description: Invalid request parameters
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+
+    Unauthorized:
+      description: Authentication required or invalid token
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+
+    Forbidden:
+      description: Insufficient permissions (requires tenant admin or system admin role)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+
+  schemas:
+    ProblemDetails:
+      type: object
+      description: RFC 7807 Problem Details for HTTP APIs
+      properties:
+        type:
+          type: string
+          description: Problem type URI
+          example: https://latebit.io/bulwark/errors/not-found
+        title:
+          type: string
+          description: Short problem title
+          example: Not Found
+        status:
+          type: integer
+          description: HTTP status code
+          example: 404
+        detail:
+          type: string
+          description: Detailed problem description
+          example: The requested resource does not exist
+        instance:
+          type: string
+          description: Problem instance URI
+
+    Tenant:
+      type: object
+      description: Tenant configuration
+      properties:
+        id:
+          type: string
+          description: Tenant ID (UUID)
+          example: 550e8400-e29b-41d4-a716-446655440000
+        name:
+          type: string
+          description: Unique tenant name
+          example: Acme Corp
+        description:
+          type: string
+          description: Tenant description
+          example: Acme Corporation tenant
+        domain:
+          type: string
+          description: Tenant domain
+          example: acme.example.com
+        created_at:
+          type: string
+          format: date-time
+          description: Creation timestamp
+        modified_at:
+          type: string
+          format: date-time
+          description: Last modification timestamp
+
+    Account:
+      type: object
+      description: User account
+      properties:
+        id:
+          type: string
+          description: Account ID (UUID)
+          example: 550e8400-e29b-41d4-a716-446655440001
+        tenantId:
+          type: string
+          description: Tenant ID
+        email:
+          type: string
+          format: email
+          description: Account email
+        isVerified:
+          type: boolean
+          description: Email verification status
+        isEnabled:
+          type: boolean
+          description: Account enabled status
+        isDeleted:
+          type: boolean
+          description: Soft delete flag
+        socialProviders:
+          type: array
+          description: Linked social providers
+          items:
+            $ref: '#/components/schemas/SocialProvider'
+        roles:
+          type: array
+          description: Assigned role names
+          items:
+            type: string
+          example: [tenant_admin, viewer]
+        permissions:
+          type: array
+          description: Directly assigned permission keys
+          items:
+            type: string
+          example: [accounts:read, rbac:read]
+        created:
+          type: string
+          format: date-time
+        modified:
+          type: string
+          format: date-time
+
+    AccountDetails:
+      allOf:
+        - $ref: '#/components/schemas/Account'
+        - type: object
+          properties:
+            authTokens:
+              type: array
+              description: Authentication tokens
+              items:
+                $ref: '#/components/schemas/AuthToken'
+            magicCodes:
+              type: array
+              description: Magic codes
+              items:
+                $ref: '#/components/schemas/MagicCode'
+
+    SocialProvider:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Provider name (e.g., google, github)
+          example: google
+        socialId:
+          type: string
+          description: Social provider user ID
+
+    AuthToken:
+      type: object
+      properties:
+        id:
+          type: string
+        tenantId:
+          type: string
+        userId:
+          type: string
+        deviceId:
+          type: string
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+        created:
+          type: string
+          format: date-time
+        modified:
+          type: string
+          format: date-time
+
+    MagicCode:
+      type: object
+      properties:
+        id:
+          type: string
+        tenantId:
+          type: string
+        userId:
+          type: string
+        code:
+          type: string
+        expires:
+          type: string
+          format: date-time
+        created:
+          type: string
+          format: date-time
+
+    Role:
+      type: object
+      description: RBAC Role
+      properties:
+        id:
+          type: string
+          description: Role ID (UUID)
+        tenantId:
+          type: string
+        name:
+          type: string
+          description: Unique role name
+          example: tenant_admin
+        description:
+          type: string
+          description: Role description
+        permissionIds:
+          type: array
+          description: Assigned permission keys
+          items:
+            type: string
+          example: [accounts:manage, rbac:manage]
+        created:
+          type: string
+          format: date-time
+        modified:
+          type: string
+          format: date-time
+
+    Permission:
+      type: object
+      description: RBAC Permission
+      properties:
+        id:
+          type: string
+          description: Permission ID (UUID)
+        tenantId:
+          type: string
+        key:
+          type: string
+          description: Permission key (resource:action)
+          example: accounts:manage
+        name:
+          type: string
+          description: Resource name
+          example: accounts
+        action:
+          type: string
+          description: Action name
+          example: manage
+        created:
+          type: string
+          format: date-time
+        modified:
+          type: string
+          format: date-time

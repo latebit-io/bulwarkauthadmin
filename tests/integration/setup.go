@@ -521,6 +521,24 @@ func (tc *TestContext) Delete(path string) (*http.Response, error) {
 	return MakeAuthenticatedRequest(http.MethodDelete, tc.BaseURL+path, tc.AccessToken, nil)
 }
 
+// AuthenticateAsUser authenticates a user in a specific tenant and returns their access token
+// This is used to test as different users in integration tests
+func AuthenticateAsUser(t *testing.T, tenantID, email string) (string, error) {
+	// For testing, we use a default password that's set when accounts are created
+	// In a real scenario, you'd need to know or set the user's password
+	// For integration tests, we'll create a password and use it
+	password := "TestPassword123!"
+
+	// Try to authenticate with the test password
+	// If the user doesn't have this password set, they need to be created first
+	accessToken, err := authenticateWithPassword(tenantID, email, password, "integration-test-client")
+	if err != nil {
+		return "", fmt.Errorf("failed to authenticate user %s in tenant %s: %w", email, tenantID, err)
+	}
+
+	return accessToken, nil
+}
+
 // SetupSystemAdminContext creates a test context authenticated as the system admin
 // The system admin account must be created via ADMIN_ACCOUNT and ADMIN_ACCOUNT_PASSWORD env vars
 func SetupSystemAdminContext(t *testing.T) *TestContext {

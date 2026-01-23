@@ -17,6 +17,9 @@ const (
 	// System admin role name
 	SystemAdminRole = "bulwark_admin"
 
+	// Tenant admin role name
+	TenantAdminRole = "tenant_admin"
+
 	// System tenant ID (UUID nil)
 	SystemTenantID = "00000000-0000-0000-0000-000000000000"
 )
@@ -41,6 +44,22 @@ func IsSystemAdmin(claims AccountClaims) bool {
 		}
 	}
 	return false
+}
+
+// IsTenantAdmin checks if the user has the tenant admin role
+func IsTenantAdmin(claims AccountClaims) bool {
+	for _, role := range claims.Roles {
+		if role == TenantAdminRole {
+			return true
+		}
+	}
+	return false
+}
+
+// IsTenantAdminOrSystemAdmin checks if the user has either tenant admin or system admin role
+// System admins implicitly have tenant admin permissions
+func IsTenantAdminOrSystemAdmin(claims AccountClaims) bool {
+	return IsTenantAdmin(claims) || IsSystemAdmin(claims)
 }
 
 // CanAccessTenant checks if a user can access a specific tenant
@@ -175,4 +194,33 @@ func GetTenantID(ctx context.Context) string {
 // GetTenantIDFromEcho is a convenience function to get tenant ID from echo.Context
 func GetTenantIDFromEcho(c echo.Context) string {
 	return GetTenantID(c.Request().Context())
+}
+
+// RequireTenantAdminOrSystemAdmin is middleware that ensures the authenticated user has tenant admin or system admin role
+// This middleware must run AFTER JWT middleware and ExtractAndAuthorizeTenant (which set the claims)
+func (tm *TenantMiddleware) RequireTenantAdminOrSystemAdmin(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		// Get claims from context (set by JWT middleware)
+		claims, ok := GetAccountClaims(c)
+		if !ok {
+			return echo.NewHTTPError(http.StatusUnauthorized, problem.Details{
+				Type:   "https://latebit.io/bulwark/errors/unauthorized",
+				Title:  "Unauthorized",
+				Status: http.StatusUnauthorized,
+				Detail: "Authentication required",
+			})
+		}
+
+		// Check if user is tenant admin or system admin
+		if !IsTenantAdminOrSystemAdmin(claims) {
+			return echo.NewHTTPError(http.StatusForbidden, problem.Details{
+				Type:   "https://latebit.io/bulwark/errors/forbidden",
+				Title:  "Access Denied",
+				Status: http.StatusForbidden,
+				Detail: "Tenant administrator access required",
+			})
+		}
+
+		return next(c)
+	}
 }

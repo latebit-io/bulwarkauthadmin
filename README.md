@@ -11,6 +11,7 @@ A Go microservice for managing user accounts and authentication. Provides REST A
 - [Installation](#installation)
 - [Running the Service](#running-the-service)
 - [Environment Variables](#environment-variables)
+- [API Documentation](#api-documentation)
 - [Architecture](#architecture)
 - [API Endpoints](#api-endpoints)
 - [Development](#development)
@@ -191,6 +192,43 @@ go run cmd/bulwarkauthadmin/main.go
 ```bash
 PORT=8080 DB_CONNECTION=mongodb://localhost:27017 go run cmd/bulwarkauthadmin/main.go
 ```
+
+## API Documentation
+
+### OpenAPI Specification
+
+The complete REST API is documented in **OpenAPI 3.0 format**:
+
+- **Specification file:** `openapi.yaml`
+- **Quick start guide:** `API.md` - Common workflows and examples
+
+### View the API Spec
+
+**Online viewers (copy-paste the spec):**
+- [Swagger UI Editor](https://editor.swagger.io/) - Paste contents of `openapi.yaml`
+- [ReDoc](https://redoc.ly/) - Upload `openapi.yaml`
+
+**Local viewers:**
+- Visual Studio Code with OpenAPI extension
+- Postman - Import `openapi.yaml`
+- Insomnia - Import `openapi.yaml`
+
+### API Quick Reference
+
+```bash
+# Health check (no auth required)
+curl http://localhost:8081/api/v1/health
+
+# List tenants (requires system admin token)
+curl -H "Authorization: Bearer <token>" \
+  http://localhost:8081/api/v1/admin/tenants
+
+# List accounts in tenant (requires tenant admin token)
+curl -H "Authorization: Bearer <token>" \
+  http://localhost:8081/api/v1/tenant/{tenantId}/accounts
+```
+
+See `API.md` for detailed workflows and examples.
 
 ## Architecture
 
