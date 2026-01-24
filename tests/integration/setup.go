@@ -16,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	bulwark "github.com/latebit-io/bulwark-auth-guard"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -216,7 +217,14 @@ func setupTestTenantInternal(t *testing.T) (string, string, error) {
 		return "", "", fmt.Errorf("failed to verify account: %w", err)
 	}
 
-	// Authenticate and get access token
+	// Assign tenant_admin role to the test user BEFORE authenticating
+	// This way, when bulwarkauth issues a JWT, it will include the tenant_admin role from the shared database
+	err = SetupTestUserAsTenantAdmin(tenantID, testEmail)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to setup test user as tenant admin: %w", err)
+	}
+
+	// Now authenticate and get access token - the JWT will include the tenant_admin role
 	accessToken, err := authenticateWithPassword(tenantID, testEmail, testPassword, testClientID)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to authenticate: %w", err)
@@ -583,4 +591,69 @@ func SetupSystemAdminContext(t *testing.T) *TestContext {
 		BaseURL:     fmt.Sprintf("%s/api/v1/tenant/%s", baseURL, SystemTenantID),
 		T:           t,
 	}
+}
+
+// SetupTestUserAsTenantAdmin creates a test user account in the database and assigns them the tenant_admin role
+// This is done via direct database access to bypass JWT validation issues when cross-tenant API calls are made
+func SetupTestUserAsTenantAdmin(tenantID, email string) error {
+	if mongoClient == nil {
+		return errors.New("MongoDB client not initialized")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	dbName := "bulwarkauth"
+	if seed := os.Getenv("DB_NAME_SEED"); seed != "" {
+		dbName = "bulwarkauth" + seed
+	}
+
+	db := mongoClient.Database(dbName)
+	accountsCollection := db.Collection("accounts")
+
+	now := time.Now()
+
+	// First try to just add the tenant_admin role to any existing account with this email in this tenant
+	filter := map[string]interface{}{
+		"tenantId": tenantID,
+		"email":    email,
+	}
+
+	update := map[string]interface{}{
+		"$addToSet": map[string]interface{}{
+			"roles": "tenant_admin",
+		},
+		"$set": map[string]interface{}{
+			"modified": now,
+		},
+	}
+
+	result, err := accountsCollection.UpdateOne(ctx, filter, update)
+	if err != nil {
+		return err
+	}
+
+	// If no document was matched, create a new one
+	if result.MatchedCount == 0 {
+		testUserID := uuid.New().String()
+		account := map[string]interface{}{
+			"_id":               testUserID,
+			"tenantId":          tenantID,
+			"email":             email,
+			"isVerified":        true,
+			"verificationToken": "",
+			"isEnabled":         true,
+			"isDeleted":         false,
+			"socialProviders":   []interface{}{},
+			"roles":             []string{"tenant_admin"},
+			"permissions":       []interface{}{},
+			"created":           now,
+			"modified":          now,
+		}
+
+		_, err := accountsCollection.InsertOne(ctx, account)
+		return err
+	}
+
+	return nil
 }

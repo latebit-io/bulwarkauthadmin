@@ -166,6 +166,7 @@ func (t *MongoDbTenantRepository) Delete(ctx context.Context, tenantID string) e
 type DefaultTenantService struct {
 	repo         TenantRepository
 	emailService email.EmailService
+	adminService TenantAdminService
 }
 
 func NewDefaultTenantService(repo TenantRepository, emailService email.EmailService) TenantService {
@@ -173,6 +174,12 @@ func NewDefaultTenantService(repo TenantRepository, emailService email.EmailServ
 		repo:         repo,
 		emailService: emailService,
 	}
+}
+
+// SetAdminService sets the admin service for creating default tenant roles
+// This is called from main.go after all services are initialized to avoid circular dependencies
+func (s *DefaultTenantService) SetAdminService(adminService TenantAdminService) {
+	s.adminService = adminService
 }
 
 func (s *DefaultTenantService) ListTenants(ctx context.Context) ([]Tenant, error) {
@@ -196,6 +203,12 @@ func (s *DefaultTenantService) AddTenant(ctx context.Context, name, description,
 	err = s.emailService.CreateDefaultTemplates(ctx, tenantID)
 	if err != nil {
 		return err
+	}
+	// Create default tenant admin role and permissions
+	if s.adminService != nil {
+		if err := s.adminService.CreateTenantAdminRole(ctx, tenantID); err != nil {
+			return err
+		}
 	}
 	return nil
 }

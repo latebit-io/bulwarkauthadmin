@@ -105,6 +105,11 @@ func main() {
 	rolesRepository := rbac.NewMongoDBRolesRepository(mongodb)
 	tenantAdminService := tenants.NewTenantAdminServiceDefault(rolesRepository, permissionsRepository)
 
+	// Set the admin service so tenants can create default roles when new tenants are added
+	if ts, ok := tenantService.(*tenants.DefaultTenantService); ok {
+		ts.SetAdminService(tenantAdminService)
+	}
+
 	// Create tenant admin role for system tenant
 	err = tenantAdminService.CreateTenantAdminRole(context.Background(), systemTenantID)
 	if err != nil {

@@ -45,7 +45,21 @@ func (jm JWTMiddleware) Jwt(next echo.HandlerFunc) echo.HandlerFunc {
 		jwt = strings.Replace(jwt, "Bearer ", "", 1)
 		jwt = strings.TrimSpace(jwt)
 		ctx := c.Request().Context()
+
+		// Try to validate against the requested tenant first
 		claims, err := jm.auth.Authenticate.ValidateAccessToken(ctx, tenantID, jwt)
+		if err != nil {
+			// If validation fails and the JWT might be from a system admin,
+			// try validating against the system tenant
+			systemTenantID := "00000000-0000-0000-0000-000000000000"
+			systemClaims, systemErr := jm.auth.Authenticate.ValidateAccessToken(ctx, systemTenantID, jwt)
+			if systemErr == nil && IsSystemAdmin(authClaimsToAccountCLaims(systemClaims, jwt, deviceId)) {
+				// System admin accessing a tenant-scoped endpoint - allow it
+				claims = systemClaims
+				err = nil
+			}
+		}
+
 		if err != nil {
 			return echo.NewHTTPError(http.StatusBadRequest, problem.NewBadRequest(err))
 		}

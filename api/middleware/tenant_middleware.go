@@ -26,7 +26,8 @@ const (
 
 // TenantMiddleware extracts and validates tenant ID from URL path parameter
 type TenantMiddleware struct {
-	tenantService tenants.TenantService
+	tenantService  tenants.TenantService
+	accountService interface{} // Will be set in main.go to avoid circular imports
 }
 
 // NewTenantMiddleware creates a new tenant middleware instance
@@ -34,6 +35,12 @@ func NewTenantMiddleware(tenantService tenants.TenantService) *TenantMiddleware 
 	return &TenantMiddleware{
 		tenantService: tenantService,
 	}
+}
+
+// SetAccountService sets the account service for role enrichment
+// This is called from main.go after all services are initialized
+func (tm *TenantMiddleware) SetAccountService(service interface{}) {
+	tm.accountService = service
 }
 
 // IsSystemAdmin checks if the user has the system admin role

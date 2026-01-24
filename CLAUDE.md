@@ -23,8 +23,23 @@ Service Layer (internal/*/accounts.go - business logic)
     ↓
 Repository Layer (internal/*/mongodb_*_repository.go - data access)
     ↓
-MongoDB Database
+MongoDB Database (SHARED with BulwarkAuth)
 ```
+
+### Important: Shared Database with BulwarkAuth
+
+**BulwarkAuthAdmin and BulwarkAuth share the same MongoDB database.** This is a critical architectural decision:
+
+- **Accounts** are stored in the shared database with roles and permissions fields
+- **JWT tokens** issued by BulwarkAuth include roles from the account document in the shared database
+- **Role assignments** made by BulwarkAuthAdmin are immediately reflected in accounts, affecting future JWT issuance
+- **Middleware** validates JWT claims (which come from BulwarkAuth) and can enrich them by reading the account from the shared database if needed
+
+This means:
+1. When a role is assigned to an account in BulwarkAuthAdmin, it's updated in the shared database
+2. When the user authenticates NEXT TIME (after role assignment), the new JWT will include the updated roles
+3. Current JWTs won't update - only NEW authentications get updated JWTs
+4. The middleware can look up the account in the shared database to get the authoritative role set
 
 ### Key Architectural Decisions
 
