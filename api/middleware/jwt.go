@@ -49,12 +49,11 @@ func (jm JWTMiddleware) Jwt(next echo.HandlerFunc) echo.HandlerFunc {
 		// Try to validate against the requested tenant first
 		claims, err := jm.auth.Authenticate.ValidateAccessToken(ctx, tenantID, jwt)
 		if err != nil {
-			// If validation fails and the JWT might be from a system admin,
-			// try validating against the system tenant
+			c.Logger().Warnf("Failed to validate JWT %s", err)
 			systemTenantID := "00000000-0000-0000-0000-000000000000"
 			systemClaims, systemErr := jm.auth.Authenticate.ValidateAccessToken(ctx, systemTenantID, jwt)
-			if systemErr == nil && IsSystemAdmin(authClaimsToAccountCLaims(systemClaims, jwt, deviceId)) {
-				// System admin accessing a tenant-scoped endpoint - allow it
+			if systemErr == nil && IsSystemAdmin(authClaimsToAccountClaims(systemClaims, jwt, deviceId)) {
+
 				claims = systemClaims
 				err = nil
 			}
@@ -63,7 +62,7 @@ func (jm JWTMiddleware) Jwt(next echo.HandlerFunc) echo.HandlerFunc {
 		if err != nil {
 			return echo.NewHTTPError(http.StatusBadRequest, problem.NewBadRequest(err))
 		}
-		c.Set("claims", authClaimsToAccountCLaims(claims, jwt, deviceId))
+		c.Set("claims", authClaimsToAccountClaims(claims, jwt, deviceId))
 		return next(c)
 	}
 }
@@ -97,12 +96,12 @@ func (jm JWTMiddleware) JwtForSystemRoutes(next echo.HandlerFunc) echo.HandlerFu
 			})
 		}
 
-		c.Set("claims", authClaimsToAccountCLaims(claims, jwt, deviceId))
+		c.Set("claims", authClaimsToAccountClaims(claims, jwt, deviceId))
 		return next(c)
 	}
 }
 
-func authClaimsToAccountCLaims(claims bulwark.AccessTokenClaims, token, clientID string) AccountClaims {
+func authClaimsToAccountClaims(claims bulwark.AccessTokenClaims, token, clientID string) AccountClaims {
 	return AccountClaims{
 		TenantID:    claims.TenantID,
 		Roles:       claims.Roles,

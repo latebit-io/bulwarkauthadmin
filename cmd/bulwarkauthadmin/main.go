@@ -110,13 +110,6 @@ func main() {
 		ts.SetAdminService(tenantAdminService)
 	}
 
-	// Create tenant admin role for system tenant
-	err = tenantAdminService.CreateTenantAdminRole(context.Background(), systemTenantID)
-	if err != nil {
-		logger.Error("failed to create tenant admin role for system tenant", "error", err)
-		panic(err)
-	}
-
 	tenantMiddleware := bulwarkauthmiddleware.NewTenantMiddleware(tenantService)
 	tenantGroup := service.Group("/api/v1/tenant/:tenantid")
 	tenantGroup.Use(jwt.Jwt)
