@@ -57,9 +57,28 @@ jobs:
           echo "New tag: v${{ steps.semantic-version.outputs.version }}"
           echo "Should release: ${{ steps.release-check.outputs.should_release }}"
 
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+          check-latest: true
+
+      - name: Run unit tests
+        run: go test -v -cover ./internal/...
+
+      - name: Run integration tests
+        run: bash run-integration-tests.sh
+
   create-tag:
     name: Create Git Tag
-    needs: semver
+    needs: [semver, test]
     if: needs.semver.outputs.should_release == 'true' && github.ref_type != 'tag'
     runs-on: ubuntu-latest
     outputs:
@@ -98,7 +117,7 @@ jobs:
   # Second job to build and publish with GoReleaser
   release:
     name: Release with GoReleaser
-    needs: [semver, create-tag]
+    needs: [semver, create-tag, test]
     if: needs.semver.outputs.should_release == 'true'
     runs-on: ubuntu-latest
     steps:

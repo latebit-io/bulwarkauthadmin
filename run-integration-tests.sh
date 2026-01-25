@@ -12,28 +12,32 @@ echo -e "${YELLOW}========================================${NC}"
 echo -e "${YELLOW}BulwarkAuthAdmin Integration Tests${NC}"
 echo -e "${YELLOW}========================================${NC}"
 
-# Check if docker-compose is available
-if ! command -v docker-compose &> /dev/null; then
+# Determine which docker compose command to use
+if command -v docker-compose &> /dev/null; then
+    DOCKER_COMPOSE="docker-compose"
+elif docker compose version &> /dev/null; then
+    DOCKER_COMPOSE="docker compose"
+else
     echo -e "${RED}Error: docker-compose is not installed${NC}"
     exit 1
 fi
 
 # Start all services (MongoDB, MailHog, BulwarkAuth)
 echo -e "\n${YELLOW}1. Starting test infrastructure (MongoDB, MailHog, BulwarkAuth)...${NC}"
-docker-compose -f docker-compose.test.yml up -d
+$DOCKER_COMPOSE -f docker-compose.test.yml up -d
 sleep 2
 
 # Wait for MongoDB to be ready
 echo -e "${YELLOW}2. Waiting for MongoDB to be ready...${NC}"
 for i in {1..60}; do
-    if docker-compose -f docker-compose.test.yml exec -T mongodb mongosh --eval "rs.status().ok" > /dev/null 2>&1; then
+    if $DOCKER_COMPOSE -f docker-compose.test.yml exec -T mongodb mongosh --eval "rs.status().ok" > /dev/null 2>&1; then
         echo -e "${GREEN}MongoDB replica set is ready!${NC}"
         break
     fi
     if [ $i -eq 60 ]; then
         echo -e "${RED}MongoDB did not become ready in time${NC}"
-        docker-compose -f docker-compose.test.yml logs mongodb
-        docker-compose -f docker-compose.test.yml down
+        $DOCKER_COMPOSE -f docker-compose.test.yml logs mongodb
+        $DOCKER_COMPOSE -f docker-compose.test.yml down
         exit 1
     fi
     sleep 1
@@ -48,8 +52,8 @@ for i in {1..60}; do
     fi
     if [ $i -eq 60 ]; then
         echo -e "${RED}BulwarkAuth service did not become ready in time${NC}"
-        docker-compose -f docker-compose.test.yml logs bulwarkauth
-        docker-compose -f docker-compose.test.yml down
+        $DOCKER_COMPOSE -f docker-compose.test.yml logs bulwarkauth
+        $DOCKER_COMPOSE -f docker-compose.test.yml down
         exit 1
     fi
     sleep 1
@@ -113,7 +117,7 @@ fi
 # Cleanup
 echo -e "\n${YELLOW}7. Cleaning up...${NC}"
 kill $SERVICE_PID 2>/dev/null || true
-docker-compose -f docker-compose.test.yml down
+$DOCKER_COMPOSE -f docker-compose.test.yml down
 
 if [ $TEST_RESULT -eq 0 ]; then
     echo -e "\n${GREEN}========================================${NC}"

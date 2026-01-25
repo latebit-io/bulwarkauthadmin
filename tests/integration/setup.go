@@ -16,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	bulwark "github.com/latebit-io/bulwark-auth-guard"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -206,7 +207,7 @@ func setupTestTenantInternal(t *testing.T) (string, string, error) {
 	}
 
 	// Get verification token from mailhog and verify via BulwarkAuth API
-	verificationToken, err := getVerificationTokenFromMailhog(testEmail)
+	verificationToken, err := GetVerificationTokenFromEmail(testEmail)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to get verification token from mailhog: %w", err)
 	}
@@ -216,7 +217,14 @@ func setupTestTenantInternal(t *testing.T) (string, string, error) {
 		return "", "", fmt.Errorf("failed to verify account: %w", err)
 	}
 
-	// Authenticate and get access token
+	// Assign tenant_admin role to the test user BEFORE authenticating
+	// This way, when bulwarkauth issues a JWT, it will include the tenant_admin role from the shared database
+	err = SetupTestUserAsTenantAdmin(tenantID, testEmail)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to setup test user as tenant admin: %w", err)
+	}
+
+	// Now authenticate and get access token - the JWT will include the tenant_admin role
 	accessToken, err := authenticateWithPassword(tenantID, testEmail, testPassword, testClientID)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to authenticate: %w", err)
@@ -289,8 +297,8 @@ func ensureDefaultTenantExists() error {
 	return nil
 }
 
-// getVerificationTokenFromMailhog retrieves the verification token from the email sent to mailhog
-func getVerificationTokenFromMailhog(email string) (string, error) {
+// GetVerificationTokenFromEmail retrieves the verification token from the email sent to mailhog
+func GetVerificationTokenFromEmail(email string) (string, error) {
 	// Wait a bit for the email to arrive
 	time.Sleep(500 * time.Millisecond)
 
@@ -323,7 +331,7 @@ func getVerificationTokenFromMailhog(email string) (string, error) {
 				// Extract token from email body - look for verification URL pattern
 				// The token is typically in a URL like: /verify?token=<token>
 				body := item.Content.Body
-				return extractTokenFromEmailBody(body)
+				return ExtractTokenFromEmailBody(body)
 			}
 		}
 	}
@@ -380,8 +388,8 @@ func authenticateWithPassword(tenantID, email, password, clientID string) (strin
 	return authResponse.AccessToken, nil
 }
 
-// extractTokenFromEmailBody extracts the verification token from email body
-func extractTokenFromEmailBody(body string) (string, error) {
+// ExtractTokenFromEmailBody extracts the verification token from email body
+func ExtractTokenFromEmailBody(body string) (string, error) {
 	// Look for vt= (verification token) in the body
 	// The email format is: ...&vt=<token>" or ...?vt=<token>...
 	tokenStart := -1
@@ -521,15 +529,35 @@ func (tc *TestContext) Delete(path string) (*http.Response, error) {
 	return MakeAuthenticatedRequest(http.MethodDelete, tc.BaseURL+path, tc.AccessToken, nil)
 }
 
+// AuthenticateAsUser authenticates a user in a specific tenant and returns their access token
+// This is used to test as different users in integration tests
+func AuthenticateAsUser(t *testing.T, tenantID, email string) (string, error) {
+	// For testing, we use a default password that's set when accounts are created
+	// In a real scenario, you'd need to know or set the user's password
+	// For integration tests, we'll create a password and use it
+	password := "TestPassword123!"
+
+	// Try to authenticate with the test password
+	// If the user doesn't have this password set, they need to be created first
+	accessToken, err := authenticateWithPassword(tenantID, email, password, "integration-test-client")
+	if err != nil {
+		return "", fmt.Errorf("failed to authenticate user %s in tenant %s: %w", email, tenantID, err)
+	}
+
+	return accessToken, nil
+}
+
 // SetupSystemAdminContext creates a test context authenticated as the system admin
 // The system admin account must be created via ADMIN_ACCOUNT and ADMIN_ACCOUNT_PASSWORD env vars
 func SetupSystemAdminContext(t *testing.T) *TestContext {
 	WaitForService(t, 20)
 	WaitForBulwarkAuth(t, 20)
 
+	adminEmail := "admin@test.example.com"
+	adminPassword := "TestAdminPassword123!"
 	// Get system admin credentials from environment
-	adminEmail := os.Getenv("ADMIN_ACCOUNT")
-	adminPassword := os.Getenv("ADMIN_ACCOUNT_PASSWORD")
+	// adminEmail := os.Getenv("ADMIN_ACCOUNT")
+	// adminPassword := os.Getenv("ADMIN_ACCOUNT_PASSWORD")
 
 	if adminEmail == "" || adminPassword == "" {
 		t.Fatal("ADMIN_ACCOUNT and ADMIN_ACCOUNT_PASSWORD environment variables must be set for system admin tests")
@@ -565,4 +593,69 @@ func SetupSystemAdminContext(t *testing.T) *TestContext {
 		BaseURL:     fmt.Sprintf("%s/api/v1/tenant/%s", baseURL, SystemTenantID),
 		T:           t,
 	}
+}
+
+// SetupTestUserAsTenantAdmin creates a test user account in the database and assigns them the tenant_admin role
+// This is done via direct database access to bypass JWT validation issues when cross-tenant API calls are made
+func SetupTestUserAsTenantAdmin(tenantID, email string) error {
+	if mongoClient == nil {
+		return errors.New("MongoDB client not initialized")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	dbName := "bulwarkauth"
+	if seed := os.Getenv("DB_NAME_SEED"); seed != "" {
+		dbName = "bulwarkauth" + seed
+	}
+
+	db := mongoClient.Database(dbName)
+	accountsCollection := db.Collection("accounts")
+
+	now := time.Now()
+
+	// First try to just add the tenant_admin role to any existing account with this email in this tenant
+	filter := map[string]interface{}{
+		"tenantId": tenantID,
+		"email":    email,
+	}
+
+	update := map[string]interface{}{
+		"$addToSet": map[string]interface{}{
+			"roles": "tenant_admin",
+		},
+		"$set": map[string]interface{}{
+			"modified": now,
+		},
+	}
+
+	result, err := accountsCollection.UpdateOne(ctx, filter, update)
+	if err != nil {
+		return err
+	}
+
+	// If no document was matched, create a new one
+	if result.MatchedCount == 0 {
+		testUserID := uuid.New().String()
+		account := map[string]interface{}{
+			"_id":               testUserID,
+			"tenantId":          tenantID,
+			"email":             email,
+			"isVerified":        true,
+			"verificationToken": "",
+			"isEnabled":         true,
+			"isDeleted":         false,
+			"socialProviders":   []interface{}{},
+			"roles":             []string{"tenant_admin"},
+			"permissions":       []interface{}{},
+			"created":           now,
+			"modified":          now,
+		}
+
+		_, err := accountsCollection.InsertOne(ctx, account)
+		return err
+	}
+
+	return nil
 }

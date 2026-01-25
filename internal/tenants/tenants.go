@@ -166,12 +166,15 @@ func (t *MongoDbTenantRepository) Delete(ctx context.Context, tenantID string) e
 type DefaultTenantService struct {
 	repo         TenantRepository
 	emailService email.EmailService
+	adminService TenantAdminService
 }
 
-func NewDefaultTenantService(repo TenantRepository, emailService email.EmailService) TenantService {
+func NewDefaultTenantService(repo TenantRepository, emailService email.EmailService,
+	adminTenantService TenantAdminService) TenantService {
 	return &DefaultTenantService{
 		repo:         repo,
 		emailService: emailService,
+		adminService: adminTenantService,
 	}
 }
 
@@ -193,10 +196,14 @@ func (s *DefaultTenantService) AddTenant(ctx context.Context, name, description,
 	if err != nil {
 		return err
 	}
-	err = s.emailService.CreateDefaultTemplates(ctx, tenantID)
-	if err != nil {
+	if err := s.emailService.CreateDefaultTemplates(ctx, tenantID); err != nil {
 		return err
 	}
+
+	if err := s.adminService.CreateTenantAdminRole(ctx, tenantID); err != nil {
+		return err
+	}
+
 	return nil
 }
 

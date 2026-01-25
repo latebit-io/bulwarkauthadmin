@@ -78,7 +78,7 @@ func TestAdminAccountsService_CreateInternalRoles(t *testing.T) {
 				adminPermission := rbac.NewPermission(systemTenantID, bulwarkAdminPermission, bulwarkAdminAction)
 				return permRepo.Create(ctx, systemTenantID, adminPermission)
 			},
-			expectedErr: false, // CreateInternalRoles handles duplicates gracefully
+			expectedErr: false,
 		},
 		{
 			name: "Role Already Exists - Should Be Idempotent",
@@ -87,10 +87,12 @@ func TestAdminAccountsService_CreateInternalRoles(t *testing.T) {
 				if err := permRepo.Create(ctx, systemTenantID, adminPermission); err != nil {
 					return err
 				}
+
 				adminRole := rbac.NewRole(systemTenantID, bulwarkAdminRole, bulwarkAdminRoleDescription)
+				adminRole.AddPermission(adminPermission.Key)
 				return roleRepo.Create(ctx, systemTenantID, adminRole)
 			},
-			expectedErr: false, // CreateInternalRoles handles duplicates gracefully
+			expectedErr: false,
 		},
 	}
 

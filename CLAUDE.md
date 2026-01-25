@@ -2,11 +2,11 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository. 
 
-Important: The AI agent should always be in ask mode and should never modify the code with out explicit Permission or if asked by the developer. 
+**Important**: The AI agent should always be in ask mode and should never modify the code without explicit permission or if asked by the developer. Claude should announce on session, "I am in ask mode, let's develop"
 
 ## Project Overview
 
-**BulwarkAuthAdmin** is a Go microservice for managing user accounts and authentication. It provides REST API endpoints for account lifecycle operations, social provider management, and role-based access control (RBAC). Built with Echo web framework and MongoDB.
+**BulwarkAuthAdmin** is a Go microservice for managing user accounts for [bulwarkauth](https://github.com/latebit-io/bulwarkauth) that handles authentication. It provides REST API endpoints for account lifecycle operations, social provider management, and role-based access control (RBAC). Built with Echo web framework and MongoDB.
 
 **Current Version:** v0.2.0  
 **Go Version:** 1.24.0  
@@ -23,8 +23,23 @@ Service Layer (internal/*/accounts.go - business logic)
     ↓
 Repository Layer (internal/*/mongodb_*_repository.go - data access)
     ↓
-MongoDB Database
+MongoDB Database (SHARED with BulwarkAuth)
 ```
+
+### Important: Shared Database with BulwarkAuth
+
+**BulwarkAuthAdmin and BulwarkAuth share the same MongoDB database.** This is a critical architectural decision:
+
+- **Accounts** are stored in the shared database with roles and permissions fields
+- **JWT tokens** issued by BulwarkAuth include roles from the account document in the shared database
+- **Role assignments** made by BulwarkAuthAdmin are immediately reflected in accounts, affecting future JWT issuance
+- **Middleware** validates JWT claims (which come from BulwarkAuth) and can enrich them by reading the account from the shared database if needed
+
+This means:
+1. When a role is assigned to an account in BulwarkAuthAdmin, it's updated in the shared database
+2. When the user authenticates NEXT TIME (after role assignment), the new JWT will include the updated roles
+3. Current JWTs won't update - only NEW authentications get updated JWTs
+4. The middleware can look up the account in the shared database to get the authoritative role set
 
 ### Key Architectural Decisions
 
@@ -45,6 +60,33 @@ MongoDB Database
 6. **RBAC Design**: Hybrid model supporting both role-based and direct permission grants:
    - `User → Roles → Permissions` (primary path)
    - `User → Permissions` (direct grants for exceptions)
+
+7. **Simple and Concise**: keep bound to the business logic, avoiding unnecessary complexity.
+
+## coding standards 
+- Use meaningful variable names
+- Follow Go best practices for code organization and readability
+- Write clean, modular code with clear separation of concerns
+- Use minimal comments 
+- avoid complex if statements, keep it concise as possible 
+- always use the least amount of code and maintain readability 
+- never use c style for loops use range and keep it idiomatic to go
+
+## API Documentation
+
+### OpenAPI/Swagger Specification
+
+The complete API is documented in OpenAPI 3.0 format:
+- **File:** `openapi.yaml`
+- **View online:** Use any OpenAPI viewer (Swagger UI, Redoc, etc.)
+- **Tools:** `swag init` can generate code from this spec if needed
+
+**Key sections:**
+- All endpoints documented with request/response schemas
+- Authentication requirements clearly marked
+- Authorization rules for tenant admin vs system admin
+- RFC 7807 Problem Details for error responses
+- Comprehensive component schemas for data models
 
 ## Directory Structure
 
@@ -67,6 +109,7 @@ internal/                 # Business logic and data access
   tenants/                # Tenant domain
     tenants.go            # Service interfaces and implementations
     mongodb_tenants_repository.go  # Repository implementation
+    admin_roles.go        # TenantAdminService for creating default tenant admin roles
     error.go              # Domain-specific errors
   email/                  # Email template management
     emails.go             # Email service
@@ -80,6 +123,11 @@ cmd/bulwarkauthadmin/     # Application entry point
   main.go                 # Service initialization and route registration
   config.go               # Environment configuration
   .env                    # Configuration file
+
+openapi.yaml              # OpenAPI 3.0 specification for the entire API
+.github/workflows/        # CI/CD workflows
+docker-compose.yml        # Docker Compose for local development
+docker-compose.test.yml   # Docker Compose for testing
 
 tests/integration/        # Integration tests
   setup.go                # Test infrastructure and helpers
@@ -109,7 +157,7 @@ go run cmd/bulwarkauthadmin/main.go
 go test -v ./internal/...
 go test -v -cover ./internal/...
 
-# Integration tests (requires MongoDB + running service)
+# Integration tests (requires MongoDB + running service + BulwarkAuth + MailHog)
 ./run-integration-tests.sh
 
 # Run specific integration test package
@@ -218,6 +266,7 @@ type Permission struct {
 All routes are under `/api/v1/` prefix.
 
 ### Account Management (Tenant-scoped: `/api/v1/tenant/:tenantid/accounts`)
+**Requires:** Tenant admin or system admin role in the tenant
 - `POST /accounts` - Register new account
 - `GET /accounts` - List all accounts (paginated)
 - `GET /accounts/:id` - Get account details
@@ -228,6 +277,7 @@ All routes are under `/api/v1/` prefix.
 - `PUT /accounts/unlink` - Unlink social provider
 
 ### RBAC Management (Tenant-scoped: `/api/v1/tenant/:tenantid/rbac`)
+**Requires:** Tenant admin or system admin role in the tenant
 - `POST /roles` - Create role
 - `GET /roles` - List roles
 - `GET /roles/:name` - Get role details
@@ -237,8 +287,15 @@ All routes are under `/api/v1/` prefix.
 - `GET /permissions` - List permissions
 - `DELETE /permissions/:name` - Delete permission
 
+### Account RBAC (Tenant-scoped: `/api/v1/tenant/:tenantid/accounts/rbac`)
+**Requires:** Tenant admin or system admin role in the tenant
+- `POST /roles` - Assign role to account
+- `DELETE /roles` - Remove role from account
+- `POST /permissions` - Assign permission to account
+- `DELETE /permissions` - Remove permission from account
+
 ### Tenant Management (Admin-scoped: `/api/v1/admin/tenants`)
-Requires system admin role
+**Requires:** System admin role
 - `POST /tenants` - Create tenant
 - `GET /tenants` - List all tenants
 - `GET /tenants/:id` - Get tenant details
@@ -246,21 +303,24 @@ Requires system admin role
 - `DELETE /tenants/:id` - Delete tenant
 
 ### Health
-- `GET /health` - Health check
+- `GET /health` - Health check (no authentication required)
 
 ## Environment Configuration
 
 Key environment variables (see `cmd/bulwarkauthadmin/.env`):
 
 ```bash
-PORT=8080                                    # Server port
+PORT=8081                                    # Server port
 CORS_ENABLED=false                          # Enable CORS
 ALLOWED_WEB_ORIGINS=http://localhost:5173  # CORS origins (comma-separated)
 
 DB_CONNECTION=mongodb://localhost:27017/?connect=direct
 DB_NAME_SEED=""                             # Database suffix (e.g., "test")
 
-BULWARK_AUTH_URL=http://localhost:5173     # Frontend URL
+BULWARK_AUTH_URL=http://localhost:8080     # BulwarkAuth service URL
+
+ADMIN_ACCOUNT=admin@test.example.com       # Initial admin email (REMOVE AFTER FIRST RUN)
+ADMIN_ACCOUNT_PASSWORD=TestAdminPassword123! # Initial admin password (REMOVE AFTER FIRST RUN)
 ```
 
 ## Testing Strategy
@@ -271,13 +331,23 @@ BULWARK_AUTH_URL=http://localhost:5173     # Frontend URL
 - No external dependencies required
 - Table-driven test patterns
 - Located alongside code (`*_test.go`)
+- Run with: `go test -v ./internal/...`
 
 ### Integration Tests
-- Test full HTTP API against real MongoDB
+- Test full HTTP API against real MongoDB, BulwarkAuth, and MailHog
 - Build tag: `//go:build integration`
 - Located in `tests/integration/`
-- Require MongoDB running on localhost:27017
+- Require services running via Docker Compose
 - Use helper functions in `tests/integration/setup.go`
+- Run with: `./run-integration-tests.sh` (automated) or manual setup
+
+**Integration Test Helpers:**
+- `NewTestContext(t)` - Authenticated test context
+- `SetupTestTenant(t)` - Test tenant + user setup
+- `SetupSystemAdminContext(t)` - System admin context
+- `MakeAuthenticatedRequest()` - HTTP request with JWT
+- `GetVerificationTokenFromEmail()` - Extract token from MailHog
+- `ExtractTokenFromEmailBody()` - Parse email body
 
 ## Code Style and Patterns
 
@@ -336,6 +406,7 @@ type AccountManagementService interface {
 2. **Tag Creation** - Automatic git tags on main branch
 3. **GoReleaser** - Cross-platform builds (Linux, macOS, Windows on amd64/arm64)
 4. **Docker Images** - Published to GitHub Container Registry
+5. **Integration Tests** - Runs via `./run-integration-tests.sh`
 
 ### Commit Message Format
 
@@ -346,13 +417,60 @@ fix: bug fix
 BREAKING CHANGE: breaking API change
 ```
 
+## Authorization & RBAC
+
+### Role Hierarchy
+
+The system supports a hierarchical authorization model:
+
+1. **System Admin (`bulwark_admin`)**
+   - Located in the system tenant (UUID nil: `00000000-0000-0000-0000-000000000000`)
+   - Can perform operations across all tenants
+   - Implicitly has tenant admin permissions for all tenants
+   - Routes: `/api/v1/admin/*`
+
+2. **Tenant Admin (`tenant_admin`)**
+   - Located in their respective tenant
+   - Can manage accounts and RBAC within their tenant only
+   - Created automatically when a tenant is created
+   - Cannot access other tenants
+
+3. **Regular User**
+   - Can perform read-only operations or operations assigned via direct permissions
+   - Cannot access tenant management endpoints
+
+### Tenant Admin Functionality
+
+Tenant admins can:
+- List, create, and manage accounts in their tenant
+- Create and manage roles and permissions
+- Assign roles (including `tenant_admin`) to other accounts
+- View and manage RBAC configurations
+
+**Default Permissions Created per Tenant:**
+- `accounts:manage` - For managing accounts
+- `rbac:manage` - For managing roles and permissions
+
+**Default Role Created per Tenant:**
+- `tenant_admin` - Has both `accounts:manage` and `rbac:manage` permissions
+
+### Middleware Implementation
+
+- **JWT Validation** - `JwtMiddleware` validates tokens and extracts claims
+- **Tenant Extraction** - `ExtractAndAuthorizeTenant` validates tenant access
+- **Tenant Admin Check** - `RequireTenantAdminOrSystemAdmin` enforces admin role requirement
+- **System Admin Check** - `RequireSystemAdmin` enforces system admin role requirement
+
+All tenant-scoped routes automatically require either `tenant_admin` or `bulwark_admin` role.
+
 ## Current Development Status
 
 ### Fully Implemented
 - **Multi-tenant architecture** - System tenant + user-managed tenants
 - **Account management** - Registration, lifecycle, social provider linking
 - **RBAC system** - Roles, permissions, role-based and direct permission grants
-- **Tenant management** - Create, read, update, delete tenants (admin only)
+- **Tenant management** - Create, read, update, delete tenants (system admin only)
+- **Tenant Admin Authorization** - Tenant admins can manage their tenant's accounts and RBAC
 - **Email templates** - Per-tenant email template management
 - **Authentication** - JWT validation with tenant context extraction
 - **CORS middleware** - Configurable cross-origin support
@@ -360,11 +478,15 @@ BREAKING CHANGE: breaking API change
   - Account tests: 3 unit tests + 7 integration tests
   - RBAC tests: 2 unit tests + 10 integration tests
   - Tenant tests: 8 unit tests + 12 integration tests
+  - Middleware tests: 6 unit tests for authorization helpers
+  - Tenant admin tests: 6 integration tests
+  - **All 28 integration tests passing** ✅
 - **CI/CD** - Automated versioning, building, and Docker image publishing
+- **Docker Compose compatible** - Works with both `docker-compose` and `docker compose` commands
 
 ### Active Branch
 - Main branch: `main`
-- Current feature branch: `feat-multi-tenant`
+- Current feature branch: `feat-tenant-admin`
 
 ## MongoDB Collections
 
@@ -393,3 +515,24 @@ Database name: `bulwarkauth{DB_NAME_SEED}` (e.g., `bulwarkauth`, `bulwarkauthtes
 7. **Always read before write** - When modifying existing files, read them first to understand the context.
 
 8. **Avoid over-engineering** - Only implement what's requested. Don't add extra features, error handling for impossible scenarios, or premature abstractions.
+
+9. **Tenant Admin Role is Automatic** - The `tenant_admin` role and its permissions are created automatically:
+   - When the service starts (for the system tenant)
+   - When a new tenant is created via `TenantAdminService.CreateTenantAdminRole()`
+   - Idempotent design - safe to call multiple times
+
+10. **System Admins Implicitly Have Tenant Admin Access** - Use `IsTenantAdminOrSystemAdmin()` for permission checks on tenant-scoped routes to allow system admins to bypass tenant admin checks and access any tenant.
+
+11. **Middleware Ordering Matters** - Apply middleware in this order for tenant-scoped routes:
+    1. JWT validation (`jwt.Jwt`)
+    2. Tenant extraction and authorization (`tenantMiddleware.ExtractAndAuthorizeTenant`)
+    3. Tenant admin role check (`tenantMiddleware.RequireTenantAdminOrSystemAdmin`)
+
+12. **Test Helpers are Public** - Public functions in `tests/integration/setup.go`:
+    - `GetVerificationTokenFromEmail()` - Retrieve verification tokens from MailHog
+    - `ExtractTokenFromEmailBody()` - Parse email body for tokens
+    - Other helpers are used internally by tests
+
+13. **Docker Compose Compatibility** - The `run-integration-tests.sh` script automatically detects and uses either:
+    - `docker-compose` (standalone command)
+    - `docker compose` (Docker plugin - GitHub Actions runner)

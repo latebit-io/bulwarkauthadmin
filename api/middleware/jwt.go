@@ -45,11 +45,24 @@ func (jm JWTMiddleware) Jwt(next echo.HandlerFunc) echo.HandlerFunc {
 		jwt = strings.Replace(jwt, "Bearer ", "", 1)
 		jwt = strings.TrimSpace(jwt)
 		ctx := c.Request().Context()
+
+		// Try to validate against the requested tenant first
 		claims, err := jm.auth.Authenticate.ValidateAccessToken(ctx, tenantID, jwt)
+		if err != nil {
+			c.Logger().Warnf("Failed to validate JWT, trying system validation")
+			systemTenantID := "00000000-0000-0000-0000-000000000000"
+			systemClaims, systemErr := jm.auth.Authenticate.ValidateAccessToken(ctx, systemTenantID, jwt)
+			if systemErr == nil && IsSystemAdmin(authClaimsToAccountClaims(systemClaims, jwt, deviceId)) {
+
+				claims = systemClaims
+				err = nil
+			}
+		}
+
 		if err != nil {
 			return echo.NewHTTPError(http.StatusBadRequest, problem.NewBadRequest(err))
 		}
-		c.Set("claims", authClaimsToAccountCLaims(claims, jwt, deviceId))
+		c.Set("claims", authClaimsToAccountClaims(claims, jwt, deviceId))
 		return next(c)
 	}
 }
@@ -83,12 +96,12 @@ func (jm JWTMiddleware) JwtForSystemRoutes(next echo.HandlerFunc) echo.HandlerFu
 			})
 		}
 
-		c.Set("claims", authClaimsToAccountCLaims(claims, jwt, deviceId))
+		c.Set("claims", authClaimsToAccountClaims(claims, jwt, deviceId))
 		return next(c)
 	}
 }
 
-func authClaimsToAccountCLaims(claims bulwark.AccessTokenClaims, token, clientID string) AccountClaims {
+func authClaimsToAccountClaims(claims bulwark.AccessTokenClaims, token, clientID string) AccountClaims {
 	return AccountClaims{
 		TenantID:    claims.TenantID,
 		Roles:       claims.Roles,
