@@ -19,7 +19,7 @@ func TestMongoDBPermissionsRepository_Create(t *testing.T) {
 	}{
 		{
 			name:        "Valid Permission",
-			permission:  NewPermission(testTenantID, "users", "read"),
+			permission:  NewPermission(testTenantID, "users", "write"),
 			expectedErr: nil,
 		},
 		{
@@ -28,13 +28,8 @@ func TestMongoDBPermissionsRepository_Create(t *testing.T) {
 			expectedErr: nil,
 		},
 		{
-			name: "Duplicate Permission",
-			permission: Permission{
-				TenantID: testTenantID,
-				Key:      "users:read",
-				Name:     "users",
-				Action:   "read",
-			},
+			name:        "Duplicate Permission",
+			permission:  NewPermission(testTenantID, "users", "read"),
 			expectedErr: PermissionDuplicateError{Value: "users:read"},
 		},
 	}
@@ -45,12 +40,7 @@ func TestMongoDBPermissionsRepository_Create(t *testing.T) {
 	repo := NewMongoDBPermissionsRepository(db)
 
 	// Create first permission for duplicate test
-	firstPerm := Permission{
-		TenantID: testTenantID,
-		Key:      "users:read",
-		Name:     "users",
-		Action:   "read",
-	}
+	firstPerm := NewPermission(testTenantID, "users", "read")
 	err := repo.Create(context.TODO(), testTenantID, firstPerm)
 	assert.NoError(t, err)
 
@@ -60,7 +50,9 @@ func TestMongoDBPermissionsRepository_Create(t *testing.T) {
 
 			if tt.expectedErr != nil {
 				assert.Error(t, err)
-				assert.Equal(t, tt.expectedErr.Error(), err.Error())
+				var duplicateErr PermissionDuplicateError
+				assert.True(t, errors.As(err, &duplicateErr))
+				assert.Equal(t, "users:read", duplicateErr.Value)
 			} else {
 				assert.NoError(t, err)
 			}
