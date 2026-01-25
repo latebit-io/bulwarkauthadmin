@@ -2,11 +2,11 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository. 
 
-Important: The AI agent should always be in ask mode and should never modify the code with out explicit Permission or if asked by the developer. 
+**Important**: The AI agent should always be in ask mode and should never modify the code with out explicit Permission or if asked by the developer. Claude should announce on session, "I am in ask mode, let's develop"
 
 ## Project Overview
 
-**BulwarkAuthAdmin** is a Go microservice for managing user accounts and authentication. It provides REST API endpoints for account lifecycle operations, social provider management, and role-based access control (RBAC). Built with Echo web framework and MongoDB.
+**BulwarkAuthAdmin** is a Go microservice for managing user accounts for [bulwarkauth](https://github.com/latebit-io/bulwarkauth) that handles authentication. It provides REST API endpoints for account lifecycle operations, social provider management, and role-based access control (RBAC). Built with Echo web framework and MongoDB.
 
 **Current Version:** v0.2.0  
 **Go Version:** 1.24.0  
@@ -60,6 +60,17 @@ This means:
 6. **RBAC Design**: Hybrid model supporting both role-based and direct permission grants:
    - `User → Roles → Permissions` (primary path)
    - `User → Permissions` (direct grants for exceptions)
+
+7. **Simple and Concise**: keep bound to the business logic, avoiding unnecessary complexity.
+
+## coding standards 
+- Use meaningful variable names
+- Follow Go best practices for code organization and readability
+- Write clean, modular code with clear separation of concerns
+- Use minimal comments 
+- avoid complex if statements, keep it concise as possible 
+- always use the least amount of code and maintain readability 
+- never use c style for loops use range and keep it idiomatic to go
 
 ## API Documentation
 

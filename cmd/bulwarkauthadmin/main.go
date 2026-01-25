@@ -94,21 +94,16 @@ func main() {
 		panic(err)
 	}
 
-	tenantService := tenants.NewDefaultTenantService(tenantRepository, emailService)
 	adminGroup := service.Group("/api/v1/admin")
 	adminGroup.Use(jwt.JwtForSystemRoutes) // Validate JWT with system tenant
 	adminGroup.Use(bulwarkauthmiddleware.RequireSystemAdmin)
-	tenantsHandler := tenantsapi.NewTenantHandler(tenantService) // Require bulwark_admin role
-	tenantsapi.TenantRoutesV1(adminGroup, tenantsHandler)
 
 	permissionsRepository := rbac.NewMongoDBPermissionsRepository(mongodb)
 	rolesRepository := rbac.NewMongoDBRolesRepository(mongodb)
 	tenantAdminService := tenants.NewTenantAdminServiceDefault(rolesRepository, permissionsRepository)
-
-	// Set the admin service so tenants can create default roles when new tenants are added
-	if ts, ok := tenantService.(*tenants.DefaultTenantService); ok {
-		ts.SetAdminService(tenantAdminService)
-	}
+	tenantService := tenants.NewDefaultTenantService(tenantRepository, emailService, tenantAdminService)
+	tenantsHandler := tenantsapi.NewTenantHandler(tenantService) // Require bulwark_admin role
+	tenantsapi.TenantRoutesV1(adminGroup, tenantsHandler)
 
 	tenantMiddleware := bulwarkauthmiddleware.NewTenantMiddleware(tenantService)
 	tenantGroup := service.Group("/api/v1/tenant/:tenantid")

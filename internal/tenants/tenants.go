@@ -169,17 +169,13 @@ type DefaultTenantService struct {
 	adminService TenantAdminService
 }
 
-func NewDefaultTenantService(repo TenantRepository, emailService email.EmailService) TenantService {
+func NewDefaultTenantService(repo TenantRepository, emailService email.EmailService,
+	adminTenantService TenantAdminService) TenantService {
 	return &DefaultTenantService{
 		repo:         repo,
 		emailService: emailService,
+		adminService: adminTenantService,
 	}
-}
-
-// SetAdminService sets the admin service for creating default tenant roles
-// This is called from main.go after all services are initialized to avoid circular dependencies
-func (s *DefaultTenantService) SetAdminService(adminService TenantAdminService) {
-	s.adminService = adminService
 }
 
 func (s *DefaultTenantService) ListTenants(ctx context.Context) ([]Tenant, error) {
@@ -200,16 +196,14 @@ func (s *DefaultTenantService) AddTenant(ctx context.Context, name, description,
 	if err != nil {
 		return err
 	}
-	err = s.emailService.CreateDefaultTemplates(ctx, tenantID)
-	if err != nil {
+	if err := s.emailService.CreateDefaultTemplates(ctx, tenantID); err != nil {
 		return err
 	}
-	// Create default tenant admin role and permissions
-	if s.adminService != nil {
-		if err := s.adminService.CreateTenantAdminRole(ctx, tenantID); err != nil {
-			return err
-		}
+
+	if err := s.adminService.CreateTenantAdminRole(ctx, tenantID); err != nil {
+		return err
 	}
+
 	return nil
 }
 

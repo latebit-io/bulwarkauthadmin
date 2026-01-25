@@ -553,9 +553,11 @@ func SetupSystemAdminContext(t *testing.T) *TestContext {
 	WaitForService(t, 20)
 	WaitForBulwarkAuth(t, 20)
 
+	adminEmail := "admin@test.example.com"
+	adminPassword := "TestAdminPassword123!"
 	// Get system admin credentials from environment
-	adminEmail := os.Getenv("ADMIN_ACCOUNT")
-	adminPassword := os.Getenv("ADMIN_ACCOUNT_PASSWORD")
+	// adminEmail := os.Getenv("ADMIN_ACCOUNT")
+	// adminPassword := os.Getenv("ADMIN_ACCOUNT_PASSWORD")
 
 	if adminEmail == "" || adminPassword == "" {
 		t.Fatal("ADMIN_ACCOUNT and ADMIN_ACCOUNT_PASSWORD environment variables must be set for system admin tests")

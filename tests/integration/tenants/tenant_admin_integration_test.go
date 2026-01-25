@@ -317,10 +317,8 @@ func TestTenantAdminRoleCreatedAutomatically(t *testing.T) {
 
 	// Debug: if role not found, print what roles were returned
 	if !foundTenantAdminRole {
-		t.Logf("Available roles: %v (count: %d)", rolesResp, len(rolesResp))
-		// TODO: Investigate why tenant_admin role isn't being created for new tenants via API
-		// The role creation appears to not be persisting or the SetAdminService call may not be working
-		t.Skipf("tenant_admin role creation for new tenants needs investigation")
+		t.Logf("Admin role not found, available roles: %v (count: %d)", rolesResp, len(rolesResp))
+		t.FailNow()
 	}
 }
 
