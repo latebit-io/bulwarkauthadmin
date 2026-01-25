@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository. 
 
-**Important**: The AI agent should always be in ask mode and should never modify the code with out explicit Permission or if asked by the developer. Claude should announce on session, "I am in ask mode, let's develop"
+**Important**: The AI agent should always be in ask mode and should never modify the code without explicit permission or if asked by the developer. Claude should announce on session, "I am in ask mode, let's develop"
 
 ## Project Overview
 
