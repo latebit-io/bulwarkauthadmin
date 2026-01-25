@@ -345,73 +345,14 @@ func getTenantIDByName(tc *integration.TestContext, tenantName string) string {
 	return ""
 }
 
-// getVerificationTokenFromEmail extracts the verification token from mailhog for the given email
+// getVerificationTokenFromEmail extracts the verification token from mailhog for the given email.
+// This function is a thin wrapper around the shared helper in the integration package.
 func getVerificationTokenFromEmail(email string) (string, error) {
-	// Wait a bit for the email to arrive
-	time.Sleep(500 * time.Millisecond)
-
-	// Get messages from mailhog
-	resp, err := http.Get("http://localhost:8025/api/v2/messages")
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-
-	var mailhogResponse struct {
-		Items []struct {
-			Content struct {
-				Body string `json:"Body"`
-			} `json:"Content"`
-			Raw struct {
-				To []string `json:"To"`
-			} `json:"Raw"`
-		} `json:"items"`
-	}
-
-	if err := json.NewDecoder(resp.Body).Decode(&mailhogResponse); err != nil {
-		return "", err
-	}
-
-	// Find the email for our test user and extract the verification token
-	for _, item := range mailhogResponse.Items {
-		for _, to := range item.Raw.To {
-			if to == email {
-				// Extract token from email body - look for verification URL pattern
-				// The token is typically in a URL like: /verify?token=<token>
-				body := item.Content.Body
-				return extractTokenFromEmailBody(body)
-			}
-		}
-	}
-
-	return "", fmt.Errorf("verification email not found for %s", email)
+	return integration.GetVerificationTokenFromEmail(email)
 }
 
-// extractTokenFromEmailBody extracts the verification token from email body
+// extractTokenFromEmailBody extracts the verification token from an email body.
+// This function delegates to the shared helper in the integration package to avoid duplication.
 func extractTokenFromEmailBody(body string) (string, error) {
-	// Look for vt= (verification token) in the body
-	// The email format is: ...&vt=<token>" or ...?vt=<token>...
-	tokenStart := -1
-	for i := 0; i < len(body)-3; i++ {
-		if body[i:i+3] == "vt=" {
-			tokenStart = i + 3
-			break
-		}
-	}
-
-	if tokenStart == -1 {
-		return "", fmt.Errorf("verification token (vt=) not found in email body")
-	}
-
-	// Extract until whitespace, quote, ampersand, or end of string
-	tokenEnd := tokenStart
-	for tokenEnd < len(body) && body[tokenEnd] != ' ' && body[tokenEnd] != '\n' && body[tokenEnd] != '\r' && body[tokenEnd] != '"' && body[tokenEnd] != '&' && body[tokenEnd] != '<' {
-		tokenEnd++
-	}
-
-	if tokenEnd == tokenStart {
-		return "", fmt.Errorf("empty verification token in email body")
-	}
-
-	return body[tokenStart:tokenEnd], nil
+	return integration.ExtractTokenFromEmailBody(body)
 }
