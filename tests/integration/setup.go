@@ -207,7 +207,7 @@ func setupTestTenantInternal(t *testing.T) (string, string, error) {
 	}
 
 	// Get verification token from mailhog and verify via BulwarkAuth API
-	verificationToken, err := getVerificationTokenFromMailhog(testEmail)
+	verificationToken, err := GetVerificationTokenFromEmail(testEmail)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to get verification token from mailhog: %w", err)
 	}
@@ -297,8 +297,8 @@ func ensureDefaultTenantExists() error {
 	return nil
 }
 
-// getVerificationTokenFromMailhog retrieves the verification token from the email sent to mailhog
-func getVerificationTokenFromMailhog(email string) (string, error) {
+// GetVerificationTokenFromEmail retrieves the verification token from the email sent to mailhog
+func GetVerificationTokenFromEmail(email string) (string, error) {
 	// Wait a bit for the email to arrive
 	time.Sleep(500 * time.Millisecond)
 
@@ -331,7 +331,7 @@ func getVerificationTokenFromMailhog(email string) (string, error) {
 				// Extract token from email body - look for verification URL pattern
 				// The token is typically in a URL like: /verify?token=<token>
 				body := item.Content.Body
-				return extractTokenFromEmailBody(body)
+				return ExtractTokenFromEmailBody(body)
 			}
 		}
 	}
@@ -388,8 +388,8 @@ func authenticateWithPassword(tenantID, email, password, clientID string) (strin
 	return authResponse.AccessToken, nil
 }
 
-// extractTokenFromEmailBody extracts the verification token from email body
-func extractTokenFromEmailBody(body string) (string, error) {
+// ExtractTokenFromEmailBody extracts the verification token from email body
+func ExtractTokenFromEmailBody(body string) (string, error) {
 	// Look for vt= (verification token) in the body
 	// The email format is: ...&vt=<token>" or ...?vt=<token>...
 	tokenStart := -1

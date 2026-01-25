@@ -2,7 +2,6 @@ package middleware
 
 import (
 	"testing"
-	"time"
 )
 
 func TestIsTenantAdmin(t *testing.T) {
@@ -210,26 +209,5 @@ func TestCanAccessTenant(t *testing.T) {
 				t.Errorf("CanAccessTenant() = %v, want %v", result, tt.expected)
 			}
 		})
-	}
-}
-
-func TestGetAccountClaims(t *testing.T) {
-	// This test would require mocking Echo context, which is more complex
-	// For now, we test the basic logic through the other tests
-	// In a real scenario, you'd use a mocking library like testify
-
-	// Test data
-	expectedClaims := AccountClaims{
-		Roles:       []string{"user"},
-		TenantID:    "tenant-123",
-		Subject:     "user-456",
-		IssuedAt:    time.Now(),
-		ExpiresAt:   time.Now().Add(1 * time.Hour),
-		AccessToken: "token123",
-	}
-
-	// Verify the test structure
-	if expectedClaims.Subject != "user-456" {
-		t.Errorf("Test data setup failed")
 	}
 }

@@ -71,6 +71,7 @@ This means:
 - avoid complex if statements, keep it concise as possible 
 - always use the least amount of code and maintain readability 
 - never use c style for loops use range and keep it idiomatic to go
+- never use method setters for dependency always use constructor 
 
 ## API Documentation
 
