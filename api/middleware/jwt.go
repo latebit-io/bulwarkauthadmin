@@ -49,7 +49,7 @@ func (jm JWTMiddleware) Jwt(next echo.HandlerFunc) echo.HandlerFunc {
 		// Try to validate against the requested tenant first
 		claims, err := jm.auth.Authenticate.ValidateAccessToken(ctx, tenantID, jwt)
 		if err != nil {
-			c.Logger().Warnf("Failed to validate JWT %s", err)
+			c.Logger().Warnf("Failed to validate JWT, trying system validation")
 			systemTenantID := "00000000-0000-0000-0000-000000000000"
 			systemClaims, systemErr := jm.auth.Authenticate.ValidateAccessToken(ctx, systemTenantID, jwt)
 			if systemErr == nil && IsSystemAdmin(authClaimsToAccountClaims(systemClaims, jwt, deviceId)) {

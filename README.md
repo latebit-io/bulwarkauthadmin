@@ -106,7 +106,7 @@ By default, the service runs on `http://localhost:8081`.
 
 ```bash
 # Health check
-curl http://localhost:8081/health
+curl http://localhost:8081/api/v1/health
 ```
 
 ## Environment Variables
@@ -118,7 +118,7 @@ Configure the service behavior using the following environment variables:
 | Variable | Type | Default | Description |
 |----------|------|---------|-------------|
 | `PORT` | int | `8081` | Server port to listen on |
-| `BULWARK_AUTH_URL` | string | `http://localhost:8080` | Frontend application URL |
+| `BULWARK_AUTH_URL` | string | `http://localhost:8080` | BulwarkAuth service URL |
 
 ### Database Configuration
 
@@ -154,7 +154,7 @@ Configure the service behavior using the following environment variables:
 ```bash
 # Server
 PORT=8081
-BULWARK_AUTH_URL=http://localhost:3000
+BULWARK_AUTH_URL=http://localhost:8080
 
 # Database
 DB_CONNECTION=mongodb://localhost:27017/?connect=direct
@@ -243,6 +243,15 @@ Repository Layer (internal/*/mongodb_*_repository.go - data access)
     ↓
 MongoDB Database
 ```
+
+### Important: Shared Database with BulwarkAuth
+
+**BulwarkAuthAdmin and BulwarkAuth share the same MongoDB database.** This is a critical architectural decision:
+
+- **Accounts** are stored in the shared database with roles and permissions fields
+- **JWT tokens** issued by BulwarkAuth include roles from the account document in the shared database
+- **Role assignments** made by BulwarkAuthAdmin are immediately reflected in accounts, affecting future JWT issuance
+- Current JWTs won't update - only NEW authentications get updated JWTs
 
 ### Key Design Principles
 
@@ -336,13 +345,10 @@ go test -v -cover ./internal/...
 
 ### Integration Tests
 
-Integration tests require MongoDB running:
+Integration tests require MongoDB, BulwarkAuth, and MailHog running. The easiest way is with the provided script:
 
 ```bash
-# Start MongoDB
-docker-compose -f docker-compose.test.yml up -d
-
-# Run all integration tests
+# Run all integration tests (starts services, runs tests, cleans up)
 ./run-integration-tests.sh
 
 # Run specific domain tests
@@ -353,6 +359,8 @@ go test -v -tags=integration ./tests/integration/tenants
 # Run specific test
 go test -v -tags=integration -run TestAccountHandler_RegisterAccount ./tests/integration/accounts
 ```
+
+See `tests/integration/README.md` for manual setup and troubleshooting.
 
 ### Linting
 

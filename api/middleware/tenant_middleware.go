@@ -3,6 +3,7 @@ package middleware
 import (
 	"context"
 	"net/http"
+	"slices"
 
 	"github.com/labstack/echo/v4"
 	"github.com/latebit-io/bulwarkauthadmin/api/problem"
@@ -48,12 +49,7 @@ func IsSystemAdmin(claims AccountClaims) bool {
 
 // IsTenantAdmin checks if the user has the tenant admin role
 func IsTenantAdmin(claims AccountClaims) bool {
-	for _, role := range claims.Roles {
-		if role == TenantAdminRole {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(claims.Roles, TenantAdminRole)
 }
 
 // IsTenantAdminOrSystemAdmin checks if the user has either tenant admin or system admin role

@@ -71,7 +71,6 @@ This means:
 - avoid complex if statements, keep it concise as possible 
 - always use the least amount of code and maintain readability 
 - never use c style for loops use range and keep it idiomatic to go
-- never use method setters for dependency always use constructor 
 
 ## API Documentation
 
@@ -158,7 +157,7 @@ go run cmd/bulwarkauthadmin/main.go
 go test -v ./internal/...
 go test -v -cover ./internal/...
 
-# Integration tests (requires MongoDB + running service)
+# Integration tests (requires MongoDB + running service + BulwarkAuth + MailHog)
 ./run-integration-tests.sh
 
 # Run specific integration test package
@@ -311,14 +310,17 @@ All routes are under `/api/v1/` prefix.
 Key environment variables (see `cmd/bulwarkauthadmin/.env`):
 
 ```bash
-PORT=8080                                    # Server port
+PORT=8081                                    # Server port
 CORS_ENABLED=false                          # Enable CORS
 ALLOWED_WEB_ORIGINS=http://localhost:5173  # CORS origins (comma-separated)
 
 DB_CONNECTION=mongodb://localhost:27017/?connect=direct
 DB_NAME_SEED=""                             # Database suffix (e.g., "test")
 
-BULWARK_AUTH_URL=http://localhost:5173     # Frontend URL
+BULWARK_AUTH_URL=http://localhost:8080     # BulwarkAuth service URL
+
+ADMIN_ACCOUNT=admin@test.example.com       # Initial admin email (REMOVE AFTER FIRST RUN)
+ADMIN_ACCOUNT_PASSWORD=TestAdminPassword123! # Initial admin password (REMOVE AFTER FIRST RUN)
 ```
 
 ## Testing Strategy
@@ -329,13 +331,23 @@ BULWARK_AUTH_URL=http://localhost:5173     # Frontend URL
 - No external dependencies required
 - Table-driven test patterns
 - Located alongside code (`*_test.go`)
+- Run with: `go test -v ./internal/...`
 
 ### Integration Tests
-- Test full HTTP API against real MongoDB
+- Test full HTTP API against real MongoDB, BulwarkAuth, and MailHog
 - Build tag: `//go:build integration`
 - Located in `tests/integration/`
-- Require MongoDB running on localhost:27017
+- Require services running via Docker Compose
 - Use helper functions in `tests/integration/setup.go`
+- Run with: `./run-integration-tests.sh` (automated) or manual setup
+
+**Integration Test Helpers:**
+- `NewTestContext(t)` - Authenticated test context
+- `SetupTestTenant(t)` - Test tenant + user setup
+- `SetupSystemAdminContext(t)` - System admin context
+- `MakeAuthenticatedRequest()` - HTTP request with JWT
+- `GetVerificationTokenFromEmail()` - Extract token from MailHog
+- `ExtractTokenFromEmailBody()` - Parse email body
 
 ## Code Style and Patterns
 
@@ -394,6 +406,7 @@ type AccountManagementService interface {
 2. **Tag Creation** - Automatic git tags on main branch
 3. **GoReleaser** - Cross-platform builds (Linux, macOS, Windows on amd64/arm64)
 4. **Docker Images** - Published to GitHub Container Registry
+5. **Integration Tests** - Runs via `./run-integration-tests.sh`
 
 ### Commit Message Format
 
@@ -467,11 +480,13 @@ All tenant-scoped routes automatically require either `tenant_admin` or `bulwark
   - Tenant tests: 8 unit tests + 12 integration tests
   - Middleware tests: 6 unit tests for authorization helpers
   - Tenant admin tests: 6 integration tests
+  - **All 28 integration tests passing** ✅
 - **CI/CD** - Automated versioning, building, and Docker image publishing
+- **Docker Compose compatible** - Works with both `docker-compose` and `docker compose` commands
 
 ### Active Branch
 - Main branch: `main`
-- Current feature branch: `feat-admin-logon`
+- Current feature branch: `feat-tenant-admin`
 
 ## MongoDB Collections
 
@@ -512,3 +527,12 @@ Database name: `bulwarkauth{DB_NAME_SEED}` (e.g., `bulwarkauth`, `bulwarkauthtes
     1. JWT validation (`jwt.Jwt`)
     2. Tenant extraction and authorization (`tenantMiddleware.ExtractAndAuthorizeTenant`)
     3. Tenant admin role check (`tenantMiddleware.RequireTenantAdminOrSystemAdmin`)
+
+12. **Test Helpers are Public** - Public functions in `tests/integration/setup.go`:
+    - `GetVerificationTokenFromEmail()` - Retrieve verification tokens from MailHog
+    - `ExtractTokenFromEmailBody()` - Parse email body for tokens
+    - Other helpers are used internally by tests
+
+13. **Docker Compose Compatibility** - The `run-integration-tests.sh` script automatically detects and uses either:
+    - `docker-compose` (standalone command)
+    - `docker compose` (Docker plugin - GitHub Actions runner)
