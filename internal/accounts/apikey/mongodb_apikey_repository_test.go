@@ -39,6 +39,7 @@ func cleanupMongoServer(t *testing.T, client *mongo.Client) {
 }
 
 func newTestApiKey(tenantID, accountID, name string) *ApiKey {
+	expires := time.Now().Add(24 * time.Hour)
 	return &ApiKey{
 		ID:        uuid.New().String(),
 		TenantID:  tenantID,
@@ -47,7 +48,7 @@ func newTestApiKey(tenantID, accountID, name string) *ApiKey {
 		KeyHash:   "hashed_key_value",
 		KeyPrefix: "api_",
 		IsEnabled: true,
-		Expires:   time.Now().Add(24 * time.Hour),
+		Expires:   &expires,
 		Created:   time.Now(),
 		Modified:  time.Now(),
 	}

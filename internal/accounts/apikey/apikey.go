@@ -13,16 +13,16 @@ import (
 const apiKeyPrefix = "api_"
 
 type ApiKey struct {
-	ID        string    `json:"id" bson:"id"`
-	TenantID  string    `json:"tenantId" bson:"tenantId"`
-	AccountID string    `json:"accountId" bson:"accountId"`
-	Name      string    `json:"name" bson:"name"`
-	KeyHash   string    `json:"key" bson:"key"`
-	KeyPrefix string    `json:"keyPrefix" bson:"keyPrefix"`
-	IsEnabled bool      `json:"isEnabled" bson:"isEnabled"`
-	Expires   time.Time `json:"expires" bson:"expires"`
-	Created   time.Time `json:"created" bson:"created"`
-	Modified  time.Time `json:"modified" bson:"modified"`
+	ID        string     `json:"id" bson:"id"`
+	TenantID  string     `json:"tenantId" bson:"tenantId"`
+	AccountID string     `json:"accountId" bson:"accountId"`
+	Name      string     `json:"name" bson:"name"`
+	KeyHash   string     `json:"key" bson:"key"`
+	KeyPrefix string     `json:"keyPrefix" bson:"keyPrefix"`
+	IsEnabled bool       `json:"isEnabled" bson:"isEnabled"`
+	Expires   *time.Time `json:"expires" bson:"expires"`
+	Created   time.Time  `json:"created" bson:"created"`
+	Modified  time.Time  `json:"modified" bson:"modified"`
 }
 
 type ApiKeyRepository interface {
@@ -33,7 +33,7 @@ type ApiKeyRepository interface {
 }
 
 type ApiKeyService interface {
-	Generate(ctx context.Context, tenantID, accountID, name string, expire time.Time) (string, error)
+	Generate(ctx context.Context, tenantID, accountID, name string, expire *time.Time) (string, error)
 	Suspend(ctx context.Context, ID, tenantID, accountID string) error
 	Enable(ctx context.Context, ID, tenantID, accountID string) error
 	Revoke(ctx context.Context, ID, tenantID, accountID string) error
@@ -51,7 +51,7 @@ func NewApiKeyServiceDefault(repo ApiKeyRepository, encryption utils.Encryption)
 	}
 }
 
-func (s *ApiKeyServiceDefault) Generate(ctx context.Context, tenantID, accountID, name string, expire time.Time) (string, error) {
+func (s *ApiKeyServiceDefault) Generate(ctx context.Context, tenantID, accountID, name string, expire *time.Time) (string, error) {
 	id := uuid.New().String()
 	key := uuid.New().String()
 	hashKey, err := s.encryption.Encrypt(key)

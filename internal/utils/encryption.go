@@ -17,7 +17,7 @@ type DefaultEncryption struct {
 
 // NewDefaultEncryption creates a new instance of DefaultEncryption with the specified cost.
 // Default cost is 12, if set to lower than 12, it will be set to 12.
-func NewDefaultEncryption(cost int) *DefaultEncryption {
+func NewDefaultEncryption(cost int) Encryption {
 	if cost < 12 {
 		cost = 12
 	}

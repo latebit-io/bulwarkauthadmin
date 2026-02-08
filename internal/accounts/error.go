@@ -25,3 +25,11 @@ type SocialProviderNotFoundError struct {
 func (e SocialProviderNotFoundError) Error() string {
 	return fmt.Sprintf("social provider not found: '%s'", e.Value)
 }
+
+type ApiKeyDuplicateError struct {
+	Value string `json:"value"`
+}
+
+func (e ApiKeyDuplicateError) Error() string {
+	return fmt.Sprintf("duplicate apiKey: '%s' already exists", e.Value)
+}

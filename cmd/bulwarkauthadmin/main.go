@@ -15,6 +15,7 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	bulwark "github.com/latebit-io/bulwark-auth-guard"
 	accountsapi "github.com/latebit-io/bulwarkauthadmin/api/accounts"
+	apikeyapi "github.com/latebit-io/bulwarkauthadmin/api/accounts/apikey"
 	accountsrbacapi "github.com/latebit-io/bulwarkauthadmin/api/accounts/rbac"
 	"github.com/latebit-io/bulwarkauthadmin/api/health"
 	bulwarkauthmiddleware "github.com/latebit-io/bulwarkauthadmin/api/middleware"
@@ -22,10 +23,12 @@ import (
 	tenantsapi "github.com/latebit-io/bulwarkauthadmin/api/tenants"
 	"github.com/latebit-io/bulwarkauthadmin/internal/accounts"
 	adminAccount "github.com/latebit-io/bulwarkauthadmin/internal/accounts/admin"
+	"github.com/latebit-io/bulwarkauthadmin/internal/accounts/apikey"
 	accountsRbac "github.com/latebit-io/bulwarkauthadmin/internal/accounts/rbac"
 	"github.com/latebit-io/bulwarkauthadmin/internal/email"
 	"github.com/latebit-io/bulwarkauthadmin/internal/rbac"
 	"github.com/latebit-io/bulwarkauthadmin/internal/tenants"
+	"github.com/latebit-io/bulwarkauthadmin/internal/utils"
 	"github.com/latebit-io/bulwarkauthadmin/internal/version"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -115,6 +118,11 @@ func main() {
 	accountsManagmentService := accounts.NewAccountManagementServiceDefault(accountRepository)
 	accountsHandler := accountsapi.NewAccountHandler(accountsManagmentService)
 	accountsapi.AccountRoutesV1(tenantGroup, accountsHandler)
+	encryption := utils.NewDefaultEncryption(12)
+	apiKeyRepository := apikey.NewMongoDBApiKeyRepository(mongodb)
+	apiKeyService := apikey.NewApiKeyServiceDefault(apiKeyRepository, encryption)
+	apiKeyHandler := apikeyapi.NewAccountApiKeyHandler(apiKeyService)
+	apikeyapi.AccountApiKeyRoutesV1(tenantGroup, apiKeyHandler)
 
 	roleService := rbac.NewRoleServiceDefault(rolesRepository)
 	permissionService := rbac.NewPermissionServiceDefault(permissionsRepository)
