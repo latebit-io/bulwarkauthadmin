@@ -39,6 +39,11 @@ func (h *AccountApiKeyHandler) CreateApiKey(c echo.Context) error {
 		httpError := problem.NewBadRequest(err)
 		return echo.NewHTTPError(httpError.Status, httpError)
 	}
+	if newApiRequest.Name == "" {
+		httpError := problem.NewBadRequest(errors.New("name is required"))
+		return echo.NewHTTPError(httpError.Status, httpError)
+	}
+
 	ctx := c.Request().Context()
 	apiKey, err := h.apikey.Generate(ctx, tenantID, accountID, newApiRequest.Name, nil)
 	if err != nil {

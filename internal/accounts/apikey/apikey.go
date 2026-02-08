@@ -17,7 +17,7 @@ type ApiKey struct {
 	TenantID  string     `json:"tenantId" bson:"tenantId"`
 	AccountID string     `json:"accountId" bson:"accountId"`
 	Name      string     `json:"name" bson:"name"`
-	KeyHash   string     `json:"key" bson:"key"`
+	KeyHash   string     `json:"-" bson:"key"`
 	KeyPrefix string     `json:"keyPrefix" bson:"keyPrefix"`
 	IsEnabled bool       `json:"isEnabled" bson:"isEnabled"`
 	Expires   *time.Time `json:"expires" bson:"expires"`
@@ -68,6 +68,7 @@ func (s *ApiKeyServiceDefault) Generate(ctx context.Context, tenantID, accountID
 		Name:      name,
 		KeyHash:   hashKey,
 		KeyPrefix: apiKeyPrefix,
+		IsEnabled: true,
 		Expires:   expire,
 		Created:   time.Now(),
 		Modified:  time.Now(),

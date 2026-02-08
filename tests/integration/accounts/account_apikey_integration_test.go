@@ -23,8 +23,8 @@ func createTestAccount(t *testing.T, tc *integration.TestContext) string {
 
 	resp, err := tc.Post("/accounts", payload)
 	require.NoError(t, err)
-	defer resp.Body.Close()
 	require.Equal(t, http.StatusCreated, resp.StatusCode)
+	resp.Body.Close()
 
 	// Get account ID from list
 	resp, err = tc.Get("/accounts")
@@ -103,8 +103,8 @@ func createTestApiKey(t *testing.T, tc *integration.TestContext, accountID, keyN
 
 	resp, err := tc.Post("/accounts/"+accountID+"/apikeys", payload)
 	require.NoError(t, err)
-	defer resp.Body.Close()
 	require.Equal(t, http.StatusCreated, resp.StatusCode)
+	resp.Body.Close()
 
 	// List keys to get the ID
 	resp, err = tc.Get("/accounts/" + accountID + "/apikeys")
@@ -184,8 +184,8 @@ func TestAccountApiKeyHandler_SuspendApiKey(t *testing.T) {
 	// Suspend the key
 	resp, err := tc.Put("/accounts/"+accountID+"/apikeys/"+apiKeyID+"/suspend", nil)
 	require.NoError(t, err)
-	defer resp.Body.Close()
 	assert.Equal(t, http.StatusNoContent, resp.StatusCode)
+	resp.Body.Close()
 
 	// Verify it's disabled
 	resp, err = tc.Get("/accounts/" + accountID + "/apikeys/" + apiKeyID)
@@ -214,8 +214,8 @@ func TestAccountApiKeyHandler_EnableApiKey(t *testing.T) {
 	// Enable the key
 	resp, err = tc.Put("/accounts/"+accountID+"/apikeys/"+apiKeyID+"/enable", nil)
 	require.NoError(t, err)
-	defer resp.Body.Close()
 	assert.Equal(t, http.StatusNoContent, resp.StatusCode)
+	resp.Body.Close()
 
 	// Verify it's enabled
 	resp, err = tc.Get("/accounts/" + accountID + "/apikeys/" + apiKeyID)
@@ -238,8 +238,8 @@ func TestAccountApiKeyHandler_RevokeApiKey(t *testing.T) {
 	// Revoke the key
 	resp, err := tc.Delete("/accounts/" + accountID + "/apikeys/" + apiKeyID)
 	require.NoError(t, err)
-	defer resp.Body.Close()
 	assert.Equal(t, http.StatusNoContent, resp.StatusCode)
+	resp.Body.Close()
 
 	// Verify it's gone - listing should not contain the revoked key
 	resp, err = tc.Get("/accounts/" + accountID + "/apikeys")

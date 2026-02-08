@@ -33,3 +33,11 @@ type ApiKeyDuplicateError struct {
 func (e ApiKeyDuplicateError) Error() string {
 	return fmt.Sprintf("duplicate apiKey: '%s' already exists", e.Value)
 }
+
+type ApiKeyNotFoundError struct {
+	Value string `json:"value"`
+}
+
+func (e ApiKeyNotFoundError) Error() string {
+	return fmt.Sprintf("apiKey not found: '%s'", e.Value)
+}

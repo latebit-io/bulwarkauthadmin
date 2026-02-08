@@ -2,6 +2,7 @@ package apikey
 
 import (
 	"context"
+	"errors"
 	"log"
 
 	"github.com/latebit-io/bulwarkauthadmin/internal/accounts"
@@ -39,21 +40,28 @@ func (m *MongoDBApiKeyRepository) Create(ctx context.Context, tenantID, accountI
 // Delete implements ApiKeyRepository.
 func (m *MongoDBApiKeyRepository) Delete(ctx context.Context, id, tenantID, accountID string) error {
 	collection := m.db.Collection(collectionName)
-	_, err := collection.DeleteOne(ctx, bson.M{"id": id, "tenantId": tenantID, "accountId": accountID})
-	return err
+	result, err := collection.DeleteOne(ctx, bson.M{"id": id, "tenantId": tenantID, "accountId": accountID})
+	if err != nil {
+		return err
+	}
+	if result.DeletedCount == 0 {
+		return accounts.ApiKeyNotFoundError{
+			Value: id,
+		}
+	}
+	return nil
 }
 
-// Ret implements ApiKeyRepository.
+// Read implements ApiKeyRepository.
 func (m *MongoDBApiKeyRepository) Read(ctx context.Context, id, tenantID, accountID string) (*ApiKey, error) {
 	collection := m.db.Collection(collectionName)
 	result := collection.FindOne(ctx, bson.M{"id": id, "tenantId": tenantID, "accountId": accountID})
-
-	if err := result.Err(); err != nil {
-		return nil, err
-	}
-
 	var key ApiKey
-	if err := result.Decode(&key); err != nil {
+	err := result.Decode(&key)
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, accounts.ApiKeyNotFoundError{Value: id}
+		}
 		return nil, err
 	}
 
