@@ -28,6 +28,7 @@ type ApiKey struct {
 type ApiKeyRepository interface {
 	Create(ctx context.Context, tenantID, accountID string, key *ApiKey) error
 	Read(ctx context.Context, id, tenantID, accountID string) (*ApiKey, error)
+	ReadAll(ctx context.Context, tenantID, accountID string) ([]*ApiKey, error)
 	Update(ctx context.Context, tenantID, accountID string, key *ApiKey) error
 	Delete(ctx context.Context, id, tenantID, accountID string) error
 }
@@ -37,6 +38,8 @@ type ApiKeyService interface {
 	Suspend(ctx context.Context, ID, tenantID, accountID string) error
 	Enable(ctx context.Context, ID, tenantID, accountID string) error
 	Revoke(ctx context.Context, ID, tenantID, accountID string) error
+	List(ctx context.Context, tenantID, accountID string) ([]*ApiKey, error)
+	GetKey(ctx context.Context, id, tenantID, accountID string) (*ApiKey, error)
 }
 
 type ApiKeyServiceDefault struct {
@@ -103,4 +106,12 @@ func (s *ApiKeyServiceDefault) Enable(ctx context.Context, ID, tenantID, account
 
 func (s *ApiKeyServiceDefault) Revoke(ctx context.Context, ID, tenantID, accountID string) error {
 	return s.repo.Delete(ctx, ID, tenantID, accountID)
+}
+
+func (s *ApiKeyServiceDefault) List(ctx context.Context, tenantID, accountID string) ([]*ApiKey, error) {
+	return s.repo.ReadAll(ctx, tenantID, accountID)
+}
+
+func (s *ApiKeyServiceDefault) GetKey(ctx context.Context, id, tenantID, accountID string) (*ApiKey, error) {
+	return s.repo.Read(ctx, id, tenantID, accountID)
 }

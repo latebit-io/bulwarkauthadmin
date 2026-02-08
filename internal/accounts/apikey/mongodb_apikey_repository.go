@@ -67,6 +67,30 @@ func (m *MongoDBApiKeyRepository) Update(ctx context.Context, tenantID, accountI
 	return err
 }
 
+func (m *MongoDBApiKeyRepository) ReadAll(ctx context.Context, tenantID, accountID string) ([]*ApiKey, error) {
+	collection := m.db.Collection(collectionName)
+	cursor, err := collection.Find(ctx, bson.M{"tenantId": tenantID, "accountId": accountID})
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var keys []*ApiKey
+	for cursor.Next(ctx) {
+		var key ApiKey
+		if err := cursor.Decode(&key); err != nil {
+			return nil, err
+		}
+		keys = append(keys, &key)
+	}
+
+	if err := cursor.Err(); err != nil {
+		return nil, err
+	}
+
+	return keys, nil
+}
+
 func NewMongoDBApiKeyRepository(db *mongo.Database) ApiKeyRepository {
 	collection := db.Collection(collectionName)
 	_, err := collection.Indexes().CreateOne(context.Background(), mongo.IndexModel{
