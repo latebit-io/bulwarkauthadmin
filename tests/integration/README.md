@@ -98,6 +98,16 @@ docker-compose -f docker-compose.test.yml down -v
 - **DisableAccount** - Disable account
 - **EnableAccount** - Enable account
 
+### API Key Tests
+- **CreateApiKey** - Generate new API key, verify plaintext format
+- **CreateApiKey_DuplicateName** - Duplicate name returns 409 Conflict
+- **CreateApiKey_MissingAccountID** - Missing account ID rejected
+- **ListApiKeys** - List all API keys for an account
+- **GetApiKey** - Retrieve specific API key details
+- **SuspendApiKey** - Suspend API key, verify isEnabled is false
+- **EnableApiKey** - Re-enable suspended key, verify isEnabled is true
+- **RevokeApiKey** - Delete API key, verify removal from list
+
 ### RBAC Tests
 - **CreateRole** - Create new role with description
 - **ListRoles** - List all roles
@@ -143,6 +153,7 @@ docker-compose -f docker-compose.test.yml down -v
 │         ▼                                                │
 │  BulwarkAuthAdmin Service (localhost:8081)              │
 │  - Account Management                                   │
+│  - API Key Management                                   │
 │  - RBAC Management                                      │
 │  - Tenant Management                                    │
 │         │                                                │

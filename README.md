@@ -277,6 +277,16 @@ Base: `/api/v1/tenant/:tenantid/accounts`
 - `PUT /accounts/deactivate` - Soft delete account
 - `PUT /accounts/unlink` - Unlink social provider
 
+### API Key Management
+Base: `/api/v1/tenant/:tenantid/accounts/:id/apikeys`
+
+- `POST /accounts/:id/apikeys` - Generate new API key (returns plaintext key once)
+- `GET /accounts/:id/apikeys` - List all API keys for account
+- `GET /accounts/:id/apikeys/:apiKeyID` - Get API key details
+- `PUT /accounts/:id/apikeys/:apiKeyID/suspend` - Suspend API key
+- `PUT /accounts/:id/apikeys/:apiKeyID/enable` - Enable API key
+- `DELETE /accounts/:id/apikeys/:apiKeyID` - Revoke (delete) API key
+
 ### RBAC Management
 Base: `/api/v1/tenant/:tenantid/rbac`
 
@@ -309,6 +319,7 @@ Base: `/api/v1/admin/tenants` (requires system admin role)
 ```
 api/                          # HTTP handlers and routes
   accounts/                   # Account management endpoints
+    apikey/                   # API key management endpoints
   health/                     # Health check endpoint
   problem/                    # RFC 7807 problem details (errors)
   rbac/                       # RBAC endpoints
@@ -316,6 +327,7 @@ api/                          # HTTP handlers and routes
 
 internal/                     # Business logic and data access
   accounts/                   # Account domain
+    apikey/                   # API key domain
   rbac/                       # RBAC domain
   tenants/                    # Tenant domain
   email/                      # Email template management

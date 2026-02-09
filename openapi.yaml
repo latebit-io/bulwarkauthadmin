@@ -23,6 +23,8 @@ tags:
     description: Service health checks
   - name: Accounts
     description: Account management and lifecycle operations
+  - name: API Keys
+    description: API key management for accounts
   - name: RBAC
     description: Role and permission management
   - name: Account RBAC
@@ -38,7 +40,7 @@ paths:
       tags:
         - Health
       responses:
-        '200':
+        "200":
           description: Service is healthy
           content:
             application/json:
@@ -79,24 +81,24 @@ paths:
                   type: string
                   description: Tenant domain
       responses:
-        '201':
+        "201":
           description: Tenant created successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Tenant'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '409':
+                $ref: "#/components/schemas/Tenant"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
           description: Tenant name already exists
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ProblemDetails'
+                $ref: "#/components/schemas/ProblemDetails"
 
     get:
       summary: List all tenants
@@ -106,18 +108,18 @@ paths:
       security:
         - BearerAuth: []
       responses:
-        '200':
+        "200":
           description: List of tenants
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/Tenant'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
+                  $ref: "#/components/schemas/Tenant"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
 
   /admin/tenants/{tenantId}:
     get:
@@ -135,18 +137,18 @@ paths:
             type: string
           description: Tenant ID (UUID)
       responses:
-        '200':
+        "200":
           description: Tenant details
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Tenant'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
+                $ref: "#/components/schemas/Tenant"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
 
     put:
       summary: Update tenant
@@ -175,20 +177,20 @@ paths:
                 Domain:
                   type: string
       responses:
-        '200':
+        "200":
           description: Tenant updated successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Tenant'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
+                $ref: "#/components/schemas/Tenant"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
 
     delete:
       summary: Delete tenant
@@ -204,14 +206,14 @@ paths:
           schema:
             type: string
       responses:
-        '204':
+        "204":
           description: Tenant deleted successfully
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
 
   /tenant/{tenantId}/accounts:
     post:
@@ -241,24 +243,24 @@ paths:
                   format: email
                   description: Account email address
       responses:
-        '201':
+        "201":
           description: Account created successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Account'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '409':
+                $ref: "#/components/schemas/Account"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
           description: Email already exists in this tenant
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ProblemDetails'
+                $ref: "#/components/schemas/ProblemDetails"
 
     get:
       summary: List accounts in tenant
@@ -286,18 +288,18 @@ paths:
             default: 10
           description: Page size
       responses:
-        '200':
+        "200":
           description: List of accounts
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/Account'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
+                  $ref: "#/components/schemas/Account"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
 
   /tenant/{tenantId}/accounts/{accountId}:
     get:
@@ -319,18 +321,18 @@ paths:
           schema:
             type: string
       responses:
-        '200':
+        "200":
           description: Account details
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AccountDetails'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
+                $ref: "#/components/schemas/AccountDetails"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
 
   /tenant/{tenantId}/accounts/email:
     put:
@@ -364,16 +366,16 @@ paths:
                   format: email
                   description: New email address
       responses:
-        '200':
+        "200":
           description: Email changed successfully
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
 
   /tenant/{tenantId}/accounts/disable:
     put:
@@ -401,16 +403,16 @@ paths:
                 AccountId:
                   type: string
       responses:
-        '200':
+        "200":
           description: Account disabled successfully
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
 
   /tenant/{tenantId}/accounts/enable:
     put:
@@ -438,16 +440,16 @@ paths:
                 AccountId:
                   type: string
       responses:
-        '200':
+        "200":
           description: Account enabled successfully
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
 
   /tenant/{tenantId}/accounts/deactivate:
     put:
@@ -475,16 +477,16 @@ paths:
                 AccountId:
                   type: string
       responses:
-        '200':
+        "200":
           description: Account deactivated successfully
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
 
   /tenant/{tenantId}/accounts/unlink:
     put:
@@ -516,16 +518,240 @@ paths:
                   type: string
                   description: Social provider name (e.g., google, github)
       responses:
-        '200':
+        "200":
           description: Social provider unlinked successfully
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /tenant/{tenantId}/accounts/{accountId}/apikeys:
+    post:
+      summary: Generate a new API key
+      description: Creates a new API key for the account. The plaintext key is returned only once in the response.
+      operationId: createApiKey
+      tags:
+        - API Keys
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                  description: Unique name for the API key within this account
+      responses:
+        "201":
+          description: API key created successfully. Returns the plaintext key (shown only once).
+          content:
+            application/json:
+              schema:
+                type: string
+                example: "api_:550e8400-e29b-41d4-a716-446655440000"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          description: API key name already exists for this account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+
+    get:
+      summary: List API keys for account
+      operationId: listApiKeys
+      tags:
+        - API Keys
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of API keys
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ApiKey"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /tenant/{tenantId}/accounts/{accountId}/apikeys/{apiKeyId}:
+    get:
+      summary: Get API key details
+      operationId: getApiKey
+      tags:
+        - API Keys
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: apiKeyId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: API key details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiKey"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    delete:
+      summary: Revoke (delete) API key
+      operationId: revokeApiKey
+      tags:
+        - API Keys
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: apiKeyId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: API key revoked successfully
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /tenant/{tenantId}/accounts/{accountId}/apikeys/{apiKeyId}/suspend:
+    put:
+      summary: Suspend API key
+      operationId: suspendApiKey
+      tags:
+        - API Keys
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: apiKeyId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: API key suspended successfully
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /tenant/{tenantId}/accounts/{accountId}/apikeys/{apiKeyId}/enable:
+    put:
+      summary: Enable API key
+      operationId: enableApiKey
+      tags:
+        - API Keys
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: apiKeyId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: API key enabled successfully
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
 
   /tenant/{tenantId}/rbac/roles:
     post:
@@ -557,24 +783,24 @@ paths:
                 Description:
                   type: string
       responses:
-        '201':
+        "201":
           description: Role created successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Role'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '409':
+                $ref: "#/components/schemas/Role"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
           description: Role already exists
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ProblemDetails'
+                $ref: "#/components/schemas/ProblemDetails"
 
     get:
       summary: List roles in tenant
@@ -600,18 +826,18 @@ paths:
             type: integer
             default: 10
       responses:
-        '200':
+        "200":
           description: List of roles
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/Role'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
+                  $ref: "#/components/schemas/Role"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
 
   /tenant/{tenantId}/rbac/roles/{roleName}:
     get:
@@ -633,18 +859,18 @@ paths:
           schema:
             type: string
       responses:
-        '200':
+        "200":
           description: Role details
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Role'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
+                $ref: "#/components/schemas/Role"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
 
     put:
       summary: Update role
@@ -674,20 +900,20 @@ paths:
                 Description:
                   type: string
       responses:
-        '200':
+        "200":
           description: Role updated successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Role'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
+                $ref: "#/components/schemas/Role"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
 
     delete:
       summary: Delete role
@@ -708,14 +934,14 @@ paths:
           schema:
             type: string
       responses:
-        '204':
+        "204":
           description: Role deleted successfully
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
 
   /tenant/{tenantId}/rbac/permissions:
     post:
@@ -748,24 +974,24 @@ paths:
                   type: string
                   description: Permission action (e.g., read, write, manage)
       responses:
-        '201':
+        "201":
           description: Permission created successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Permission'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '409':
+                $ref: "#/components/schemas/Permission"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
           description: Permission already exists
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ProblemDetails'
+                $ref: "#/components/schemas/ProblemDetails"
 
     get:
       summary: List permissions in tenant
@@ -791,18 +1017,18 @@ paths:
             type: integer
             default: 10
       responses:
-        '200':
+        "200":
           description: List of permissions
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/Permission'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
+                  $ref: "#/components/schemas/Permission"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
 
   /tenant/{tenantId}/rbac/permissions/{permissionKey}:
     delete:
@@ -825,14 +1051,14 @@ paths:
             type: string
           description: Permission key in format 'resource:action'
       responses:
-        '204':
+        "204":
           description: Permission deleted successfully
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
 
   /tenant/{tenantId}/accounts/rbac/roles:
     post:
@@ -865,16 +1091,16 @@ paths:
                   type: string
                   description: Role name
       responses:
-        '200':
+        "200":
           description: Role assigned successfully
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
 
     delete:
       summary: Remove role from account
@@ -904,16 +1130,16 @@ paths:
                 role:
                   type: string
       responses:
-        '200':
+        "200":
           description: Role removed successfully
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
 
   /tenant/{tenantId}/accounts/rbac/permissions:
     post:
@@ -945,16 +1171,16 @@ paths:
                   type: string
                   description: Permission key in format 'resource:action'
       responses:
-        '200':
+        "200":
           description: Permission assigned successfully
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
 
     delete:
       summary: Remove permission from account
@@ -984,16 +1210,16 @@ paths:
                 permission:
                   type: string
       responses:
-        '200':
+        "200":
           description: Permission removed successfully
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
 
 components:
   securitySchemes:
@@ -1009,28 +1235,28 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/ProblemDetails'
+            $ref: "#/components/schemas/ProblemDetails"
 
     Unauthorized:
       description: Authentication required or invalid token
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/ProblemDetails'
+            $ref: "#/components/schemas/ProblemDetails"
 
     Forbidden:
       description: Insufficient permissions (requires tenant admin or system admin role)
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/ProblemDetails'
+            $ref: "#/components/schemas/ProblemDetails"
 
     NotFound:
       description: Resource not found
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/ProblemDetails'
+            $ref: "#/components/schemas/ProblemDetails"
 
   schemas:
     ProblemDetails:
@@ -1114,7 +1340,7 @@ components:
           type: array
           description: Linked social providers
           items:
-            $ref: '#/components/schemas/SocialProvider'
+            $ref: "#/components/schemas/SocialProvider"
         roles:
           type: array
           description: Assigned role names
@@ -1136,19 +1362,19 @@ components:
 
     AccountDetails:
       allOf:
-        - $ref: '#/components/schemas/Account'
+        - $ref: "#/components/schemas/Account"
         - type: object
           properties:
             authTokens:
               type: array
               description: Authentication tokens
               items:
-                $ref: '#/components/schemas/AuthToken'
+                $ref: "#/components/schemas/AuthToken"
             magicCodes:
               type: array
               description: Magic codes
               items:
-                $ref: '#/components/schemas/MagicCode'
+                $ref: "#/components/schemas/MagicCode"
 
     SocialProvider:
       type: object
@@ -1198,6 +1424,43 @@ components:
           type: string
           format: date-time
         created:
+          type: string
+          format: date-time
+
+    ApiKey:
+      type: object
+      description: API key for programmatic access
+      properties:
+        id:
+          type: string
+          description: API key ID (UUID)
+          example: 550e8400-e29b-41d4-a716-446655440002
+        tenantId:
+          type: string
+          description: Tenant ID
+        accountId:
+          type: string
+          description: Account ID
+        name:
+          type: string
+          description: API key name (unique per account per tenant)
+          example: my-service-key
+        keyPrefix:
+          type: string
+          description: Key prefix for identification
+          example: api_
+        isEnabled:
+          type: boolean
+          description: Whether the key is active
+        expires:
+          type: string
+          format: date-time
+          nullable: true
+          description: Optional expiration date
+        created:
+          type: string
+          format: date-time
+        modified:
           type: string
           format: date-time
 
