@@ -93,6 +93,7 @@ The complete API is documented in OpenAPI 3.0 format:
 ```
 api/                      # HTTP handlers and routes
   accounts/               # Account management endpoints
+    apikey/               # API key management endpoints
   health/                 # Health check endpoint
   problem/                # RFC 7807 problem details (standardized errors)
   rbac/                   # RBAC endpoints
@@ -103,6 +104,9 @@ internal/                 # Business logic and data access
     accounts.go           # Service interfaces and implementations
     mongodb_account_repository.go  # Repository implementation
     error.go              # Domain-specific errors
+    apikey/               # API key domain
+      apikey.go           # ApiKey model, service interface and implementation
+      mongodb_apikey_repository.go  # Repository implementation
   rbac/                   # RBAC domain
     roles.go              # Role/Permission services and repositories
     permissions.go        # Permission implementation
@@ -261,6 +265,30 @@ type Permission struct {
 }
 ```
 
+### ApiKey Structure
+
+```go
+type ApiKey struct {
+    ID        string     // UUID
+    TenantID  string     // Reference to tenant
+    AccountID string     // Reference to account
+    Name      string     // Unique per account per tenant
+    KeyHash   string     // Bcrypt-hashed key (plaintext only shown once at creation)
+    KeyPrefix string     // "api_"
+    IsEnabled bool       // Key active status
+    Expires   *time.Time // Optional expiration date
+    Created   time.Time
+    Modified  time.Time
+}
+```
+
+**Important Notes:**
+- API keys are scoped to both tenant and account (multi-tenant isolation)
+- Key is hashed with bcrypt before storage; plaintext returned only at creation as `"api_:<uuid>"`
+- Unique composite index on `{tenantId, accountId, name}`
+- Supports suspend/enable lifecycle via `IsEnabled` flag
+- Revoke performs hard deletion
+
 ## API Endpoints
 
 All routes are under `/api/v1/` prefix.
@@ -275,6 +303,15 @@ All routes are under `/api/v1/` prefix.
 - `PUT /accounts/enable` - Enable account
 - `PUT /accounts/deactivate` - Soft delete account
 - `PUT /accounts/unlink` - Unlink social provider
+
+### API Key Management (Tenant-scoped: `/api/v1/tenant/:tenantid/accounts/:id/apikeys`)
+**Requires:** Tenant admin or system admin role in the tenant
+- `POST /accounts/:id/apikeys` - Generate new API key (returns plaintext key once)
+- `GET /accounts/:id/apikeys` - List all API keys for account
+- `GET /accounts/:id/apikeys/:apiKeyID` - Get API key details
+- `PUT /accounts/:id/apikeys/:apiKeyID/suspend` - Suspend API key
+- `PUT /accounts/:id/apikeys/:apiKeyID/enable` - Enable API key
+- `DELETE /accounts/:id/apikeys/:apiKeyID` - Revoke (delete) API key
 
 ### RBAC Management (Tenant-scoped: `/api/v1/tenant/:tenantid/rbac`)
 **Requires:** Tenant admin or system admin role in the tenant
@@ -474,24 +511,27 @@ All tenant-scoped routes automatically require either `tenant_admin` or `bulwark
 - **Email templates** - Per-tenant email template management
 - **Authentication** - JWT validation with tenant context extraction
 - **CORS middleware** - Configurable cross-origin support
+- **API key management** - Generate, list, get, suspend, enable, and revoke API keys per account
 - **Comprehensive testing** - Unit tests + integration tests for all domains
   - Account tests: 3 unit tests + 7 integration tests
+  - API key tests: 6 unit tests + 8 integration tests
   - RBAC tests: 2 unit tests + 10 integration tests
   - Tenant tests: 8 unit tests + 12 integration tests
   - Middleware tests: 6 unit tests for authorization helpers
   - Tenant admin tests: 6 integration tests
-  - **All 28 integration tests passing** ✅
+  - **All 39 integration tests passing** ✅
 - **CI/CD** - Automated versioning, building, and Docker image publishing
 - **Docker Compose compatible** - Works with both `docker-compose` and `docker compose` commands
 
 ### Active Branch
 - Main branch: `main`
-- Current feature branch: `feat-tenant-admin`
+- Current feature branch: `feat-api-key`
 
 ## MongoDB Collections
 
 - **tenants** - Multi-tenant configuration with unique name index
 - **accounts** - User accounts (per tenant) with unique email index per tenant
+- **apiKeys** - API keys (per account per tenant) with unique composite index on {tenantId, accountId, name}
 - **roles** - RBAC roles (per tenant)
 - **permissions** - RBAC permissions (per tenant)
 - **email_templates** - Email templates (per tenant)
