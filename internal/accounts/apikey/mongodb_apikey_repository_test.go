@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/latebit-io/bulwarkauthadmin/internal/accounts"
 	"github.com/latebit-io/bulwarkauthadmin/internal/utils"
 	"github.com/stretchr/testify/assert"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -134,8 +135,8 @@ func TestMongoDBApiKeyRepository_Delete(t *testing.T) {
 
 	t.Run("Delete Nonexistent Key", func(t *testing.T) {
 		err := repo.Delete(context.TODO(), "nonexistent-id", testTenantID, testAccountID)
-		// NOTE: currently silently succeeds - consider adding not-found check
-		assert.NoError(t, err)
+		assert.Error(t, err)
+		assert.IsType(t, accounts.ApiKeyNotFoundError{}, err)
 	})
 }
 
