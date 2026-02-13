@@ -47,7 +47,7 @@ func newTestApiKey(tenantID, accountID, name string) *ApiKey {
 		AccountID: accountID,
 		Name:      name,
 		KeyHash:   "hashed_key_value",
-		KeyPrefix: "api_",
+		KeyPrefix: "bwa_aBcDeFgH",
 		IsEnabled: true,
 		Expires:   &expires,
 		Created:   time.Now(),

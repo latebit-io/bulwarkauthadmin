@@ -62,7 +62,7 @@ func TestAccountApiKeyHandler_CreateApiKey(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify the key has the expected prefix
-	assert.Contains(t, apiKey, "api_:")
+	assert.Contains(t, apiKey, "bwa_")
 }
 
 func TestAccountApiKeyHandler_CreateApiKey_DuplicateName(t *testing.T) {
