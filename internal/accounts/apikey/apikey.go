@@ -10,7 +10,10 @@ import (
 	"github.com/google/uuid"
 )
 
-const apiKeyPrefix = "api_"
+const (
+	apiKeyPrefix = "bwa"
+	randomLength = 8
+)
 
 type ApiKey struct {
 	ID        string     `json:"id" bson:"id"`
@@ -56,6 +59,8 @@ func NewApiKeyServiceDefault(repo ApiKeyRepository, encryption utils.Encryption)
 
 func (s *ApiKeyServiceDefault) Generate(ctx context.Context, tenantID, accountID, name string, expire *time.Time) (string, error) {
 	id := uuid.New().String()
+	randomStr := utils.GenerateRandomString(randomLength)
+	keyPrefix := fmt.Sprintf("%s_%s", apiKeyPrefix, randomStr)
 	key := uuid.New().String()
 	hashKey, err := s.encryption.Encrypt(key)
 	if err != nil {
@@ -67,7 +72,7 @@ func (s *ApiKeyServiceDefault) Generate(ctx context.Context, tenantID, accountID
 		AccountID: accountID,
 		Name:      name,
 		KeyHash:   hashKey,
-		KeyPrefix: apiKeyPrefix,
+		KeyPrefix: keyPrefix,
 		IsEnabled: true,
 		Expires:   expire,
 		Created:   time.Now(),
@@ -78,7 +83,7 @@ func (s *ApiKeyServiceDefault) Generate(ctx context.Context, tenantID, accountID
 		return "", err
 	}
 
-	return fmt.Sprintf("%s:%s", apiKey.KeyPrefix, key), nil
+	return fmt.Sprintf("%s_%s", apiKey.KeyPrefix, key), nil
 }
 
 func (s *ApiKeyServiceDefault) Suspend(ctx context.Context, ID, tenantID, accountID string) error {
